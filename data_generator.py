@@ -46,5 +46,36 @@ def generator_churn_data(n_customers=10000, output_dir='data/raw'):
     days_since_last_login = np.random.exponential(scale=10, size=n_customers).astype(int)
     days_since_alst_login = np.clip(days_since_last_login, 0, 90)
     
+    churn_score = (
+        -0.3 * (logins_per_month/100) +
+        -0.2 * feature_usage_depth + 
+        0.15 * (support_tickets/10)+
+        -0.15 * (nps_score/10)+
+        0.2 * (payment_delays/5)+
+        0.25 * (days_since_last_login/90)+
+        -0.1*(np.log1p(api_calls)/np.log1p(100000)) +
+        0.1*(subscription_tier == 'Starter').astype(int)+\
+            np.random.normal(0, 0.3, size = n_customers)
+    )
+    
+    churn_prob = 1 / (1 + np.exp(-churn_score))
+    churned =  (churn_score > np.random.random(n_customers)).astype(int)
     
     
+    df = pd.DataFrame({
+        'customer_id': customer_ids,
+        'account_age_days': account_age,
+        'subscription_tier': subscription_tier,
+        'monthly_revenue': monthly_revenue,
+        'logins_per_month': logins_per_month,
+        'feature_usage_depth': feature_usage_depth,
+        'support_tickets': support_tickets,
+        'avg_ticket_resolution_days': avg_tickets_resolution_days,
+        'nps_score': nps_score,
+        'payment_delays': payment_delays,
+        'contract_length_months': contract_length,
+        'team_size': team_size,
+        'api_calls_per_month': api_calls,
+        'days_since_last_login': days_since_last_login,
+        'churned': churned
+    })
