@@ -12,7 +12,7 @@ def generate_churn_data(n_customers=10000, output_dir='data/raw'):
     customer_ids = [f"CUST_{i:06d}" for i in range(n_customers)]
     
     account_age = np.random.exponential(scale=365, size = n_customers).astype(int)
-    account_age = np.cleint(account_age, 30, 2000)
+    account_age = np.clip(account_age, 30, 2000)
     
     tier_probs = [0.15, 0.35, 0.50]
     subscription_tier = np.random.choice(['Enterprise','Professional', "Starter"], size = n_customers, p = tier_probs)
@@ -22,7 +22,7 @@ def generate_churn_data(n_customers=10000, output_dir='data/raw'):
     
     monthly_revenue = np.clip(monthly_revenue, 10, 2000)
     
-    logins_per_month = np.random.poission(lam=20, size=n_customers)
+    logins_per_month = np.random.poisson(lam=20, size=n_customers)
     logins_per_month = np.clip(logins_per_month, 0, 100)
     
     feature_usage_depth = np.random.beta(2, 5, size=n_customers)
@@ -31,9 +31,14 @@ def generate_churn_data(n_customers=10000, output_dir='data/raw'):
     avg_tickets_resolution_days = np.random.gamma(shape=2, scale=2, size=n_customers)
     
     
-    nps_score = np.random.choice(range(11), size = n_customers, p=[0.05, 0.05, 0.05, 0.05, 0.05, 0.10, 0.15, 0.15, 0.15, 0.15, 0.10])
+    probabilities = np.array(
+        [0.05, 0.05, 0.05, 0.05, 0.05, 0.10, 0.15, 0.15, 0.15, 0.15, 0.10],
+        dtype=float,
+    )
+    probabilities /= probabilities.sum()
+    nps_score = np.random.choice(range(11), size=n_customers, p=probabilities)
     
-    payment_delays = np.random.poissons(lam=0.5, size = n_customers)
+    payment_delays = np.random.poisson(lam=0.5, size = n_customers)
     
     contract_length = np.random.choice([1, 6, 12, 24], size = n_customers, p = [0.40, 0.25, 0.25, 0.10])
     
