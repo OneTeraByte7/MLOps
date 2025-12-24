@@ -6,7 +6,7 @@ import os
 np.random.seed(42)
 
 #Generates real SaaS data
-def generator_churn_data(n_customers=10000, output_dir='data/raw'):
+def generate_churn_data(n_customers=10000, output_dir='data/raw'):
     os.makedirs(output_dir, exist_ok=True)
     
     customer_ids = [f"CUST_{i:06d}" for i in range(n_customers)]
@@ -79,3 +79,27 @@ def generator_churn_data(n_customers=10000, output_dir='data/raw'):
         'days_since_last_login': days_since_last_login,
         'churned': churned
     })
+    
+    df['snapshot_dat'] = datetime.now().strftime('%Y-%m-%d')
+    
+    train_size = int(0.8 * len(df))
+    train_df = df.iloc[:train_size]
+    test_df = df.iloc[train_size:]
+    
+    train_path = os.path.join(output_dir, 'train_data.csv')
+    test_path = os.path.join(output_dir, 'test_data.csv')
+    
+    train_df.to_csv(train_path, index=False)
+    test_df.to_csv(test_path, index=False)
+    
+    
+    print(f"# Generated {len(df)} customer records")
+    print(f"# Train set: {len(train_df)} customers ({train_df['churned'].mean():.1%} churn rate)")
+    print(f"# Test set: {len(test_df)} customers ({test_df['churned'].mean():.1%} churn rate)")
+    print(f"# Saved to {output_dir}/")
+    
+    return train_df, test_df
+if __name__ == "__main__":
+    train_df, test_df = generate_churn_data()
+    print("\nSample data:")
+    print(train_df.head())
