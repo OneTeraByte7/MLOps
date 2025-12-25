@@ -42,3 +42,47 @@ model:
     eval_metric: "auc"
     seed: 42
   
+  early_stopping_rounds: 10
+  validation_fraction: 0.2
+
+mlflow:
+  tracking_uri: "http://localhost:5000"
+  experimant_name: "churn-prediction"
+  artifact_location: "mlruns"
+
+serving:
+  host: "0.0.0.0"
+  port: 8000
+  model_name: "churn_predicator"
+
+monitoring:
+  drift_threshold: 0.05
+  performance_threshold: 0.75
+  check_interval_hours: 24
+
+  alert_email: "suryawanshisoham7@gmail.com"
+
+retraining:
+  drift_trigger: true
+  performance_trigger: true
+  schedule_trigger: true
+
+  cron_schedule: "0 2 * * 0" 
+  
+  min_performance_drop: 0.05  # 5% drop in AUC
+  min_training_samples: 1000
+
+ab_testing:
+  enabled: true
+  traffic_split:
+    model_a: 0.5
+    model_b: 0.5
+  
+  # Evaluation window
+  evaluation_days: 7
+  min_predictions: 1000
+
+deployment:
+  strategy: "blue_green"  # or "canary"
+  health_check_endpoint: "/health"
+  rollback_on_error: true
