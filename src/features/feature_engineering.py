@@ -48,5 +48,12 @@ class FeatureEngineer:
         self.categorical_features_append('nps_category')
         
         return df
+    
+def build_preprocessor(self):
+    numeric_transformer = StandardScaler()
+    
+    categorical_transformer = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+    
+    
         
         
