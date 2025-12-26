@@ -54,6 +54,88 @@ def build_preprocessor(self):
     
     categorical_transformer = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
     
+    self.preprocessor = ColumnTransformer(
+        transformer=[
+            ('num', numeric_transformer, self.numeric_features)
+            ('cat', categorical_transformer, self.categorical_features)
+        ],
+        
+        remainder='drop'
+    )
     
+    return self.prerpocessor
+
+def fit_transform(self, df):
+    df = self.create_feature(df)
+    
+    X = df[self.numeric_features + self.categorical_features]
+    Y = df[self.target] if self.target in df.columns else None
+    
+    if self.preprocessor is None:
+        self.build_preprocessor()
         
-        
+    X_transformed = self.preprocessor.fir_transform(X)
+    
+    feature_names = self._get_feature_names()
+    
+    return X_transformed, Y, feature_names
+
+def transform(self, df):
+    
+    if self.preprocessor is None:
+        raise ValueError("Preprocessor not fitted. Call fir_transform first")
+    
+    df = self.create_features(df)
+    
+    X = df[self.numeric_features + self.categorical_fetures]
+    Y = df[self.target] if self.target in df.columns else None
+    
+    X_transformed = self.preprocessor.transform(X)
+    
+    feature_names = self._get_feature_names()
+    
+    return X_transformed, Y, feature_names
+
+def _get_features_names(self):
+    feature_names = []
+    
+    for name, transformer, features in self.preprocessor.tranformers_:
+        if name == 'num':
+            feature_names.extend(features)
+        elif name == 'cat':
+            if hasattr(transformer, 'get_feature_names_out'):
+                cat_features = transformer.get_feature_names_out(features)
+                feature_names.extend(cat_features)
+            else:
+                feature_names.extend(features)
+                
+    return feature_names
+
+def save_preprocessor(self, path='models/preprocessor.pkl'):
+    os.mkdirs(os.path.dirname(path), exist_ok=True)
+    joblib.dump(self.preprocessor, path)
+    print(f"#Saved preprocessor to {path}")
+    
+def load_preprocessor(self, path='models/preprocessor.pkl'):
+        """Load fitted preprocessor"""
+        self.preprocessor = joblib.load(path)
+        print(f"✓ Loaded preprocessor from {path}")
+        return self.preprocessor
+
+# Example usage
+if __name__ == "__main__":
+    # Load data
+    train_df = pd.read_csv('data/raw/train_data.csv')
+    
+    # Initialize feature engineer
+    fe = FeatureEngineer()
+    
+    # Fit and transform
+    X_train, y_train, feature_names = fe.fit_transform(train_df)
+    
+    print(f"✓ Transformed shape: {X_train.shape}")
+    print(f"✓ Number of features: {len(feature_names)}")
+    print(f"✓ Target distribution: {np.bincount(y_train)}")
+    
+    # Save
+    fe.save_preprocessor()
