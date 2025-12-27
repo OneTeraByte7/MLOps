@@ -9,9 +9,25 @@ from sklearn.metrics import (
 import mlflow
 import mlflow.xgboost
 import yaml
-import joblibi
+import joblib
 import os
 import json
 from datetime import datetime
 import sys
 sys.path.append('src')
+
+from features.feature_engineering import FeatureEngineer
+
+class ChurnModelTrainer:
+    def __init__(self, config_path='config/config.yaml'):
+        with open(config_path, 'r') as f:
+            self.config = yaml.safe_load(f)
+            
+        self.model_params = self.config['model']['params']
+        self.model = None
+        self.feature_engineer = FeatureEngineer(config_path)
+        
+        mlflow.set_tracking_uri(self.config['mlflow']['tracking_uri'])
+        mlflow.set_experiment(self.config['mlflow']['experiemnt_name'])
+        
+        
