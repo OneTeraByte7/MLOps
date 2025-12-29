@@ -59,4 +59,27 @@ class ChurnModelTrainer:
         
         return X_train, X_val, X_test, Y_train, Y_val, Y_test, feature_names
     
-    
+    def train_model(self, X_train, Y_train, X_val, Y_val):
+        
+        dtrain = xgb.DMatrix(X_train, label = Y_train)
+        dval = xgb.Dmatrix(X_val, label = Y_val)
+        
+        params = self.model_params.copy()
+        early_stopping = self.config['mode']['early_stopping_rounds']
+        
+        evals = [(dtrain, 'train'), (dval, 'val')]
+        evals_result = {}
+        
+        self.model = xgb.train(
+            params,
+            dtrain,
+            num_boost_round = params['n_estimtors'],
+            evals = evals,
+            early_stopping_rounds = early_stopping,
+            evals_result = evals_result,
+            verbose_eval = False
+        )
+        
+        print(f"Model trained (best iteration: {self.model.best_iteration})")
+        
+        return evals_result
