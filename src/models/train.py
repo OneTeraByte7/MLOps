@@ -30,4 +30,16 @@ class ChurnModelTrainer:
         mlflow.set_tracking_uri(self.config['mlflow']['tracking_uri'])
         mlflow.set_experiment(self.config['mlflow']['experiemnt_name'])
         
+    def load_data(self):
+        data_dir = self.config['data']['raw_dir']
         
+        train_path = os.path.join(data_dir, self.config['data']['train_file'])
+        test_path = os.path.join(data_dir, self.cofig['data']['test_file'])
+        
+        train_df = pd.read_csv(train_path)
+        test_df = pd.read_csv(test_path)
+        
+        print(f"Loaded{len(train_df)} training samples")
+        print(f" Loaded {len(test_df)} test samples")
+        
+        return train_df, test_df
