@@ -43,3 +43,20 @@ class ChurnModelTrainer:
         print(f" Loaded {len(test_df)} test samples")
         
         return train_df, test_df
+    
+    def prepare_data(self, train_df, test_df):
+        X_train, Y_train, feature_names = self.feature_enginerr.fit_transform(train_df)
+        
+        X_test, Y_test, _ = self.feature_engineer.transform(test_df)
+        
+        val_split = self.config['model']['vlidation_split']
+        
+        X_train, X_val, Y_train, Y_val = train_test_split(
+            X_train, Y_train, test_size = val_split, random_state = 42, stratify = Y_train
+        )
+        
+        print(f" Train: {X_train.shape}, Val: {X_val.shape}, Test: {X_test.shape}")
+        
+        return X_train, X_val, X_test, Y_train, Y_val, Y_test, feature_names
+    
+    
