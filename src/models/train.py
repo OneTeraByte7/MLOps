@@ -109,4 +109,87 @@ class ChurnModelTrainer:
         print(f" FN: {cm[1,0]}, TP: {cm[1,1]}")
         
         return metrics, cm
+    
+    def run_training_pipeline(self):
+        with mlflow.star_run(run_name = f"training_{datetime.now().strtime('%Y%m%d_%H%M%S')}"):
+            
+            mlflow.lof_params(self.model_params)
+            mlflow.log_params("validation_split", self.config['model']['validation_split'], self.config['model']['validation_split'])
+                              
+            train_df, test_df = self.load_data()
+            
+            mlflow.log_metric('train_samples', len(train_df))
+            mlflow.log_metric('test_samples', len(test_df))
+            mlflow.log_metric("train_churn_rate", train_df['churned'].mean())
+            
+            X_train, X_val, X_test, y_train, y_val, y_test, feature_names = \
+                self.prepare_data(train_df, test_df)
+            
+            # Train model
+            print("\n" + "="*50)
+            print("Training Model...")
+            print("="*50)
+            
+            evals_result = self.train_model(X_train, y_train, X_val, y_val)
+            
+            # Log training curves
+            for dataset in ['train', 'val']:
+                for metric, values in evals_result[dataset].items():
+                    for i, value in enumerate(values):
+                        mlflow.log_metric(f"{dataset}_{metric}", value, step=i)
+            
+            # Evaluate on validation set
+            val_metrics, val_cm = self.evaluate_model(X_val, y_val, 'validation')
+            for metric, value in val_metrics.items():
+                mlflow.log_metric(metric, value)
+            
+            # Evaluate on test set
+            test_metrics, test_cm = self.evaluate_model(X_test, y_test, 'test')
+            for metric, value in test_metrics.items():
+                mlflow.log_metric(metric, value)
+            
+            # Feature importance
+            importance = self.model.get_score(importance_type='gain')
+            importance_df = pd.DataFrame({
+                'feature': list(importance.keys()),
+                'importance': list(importance.values())
+            }).sort_values('importance', ascending=False).head(20)
+            
+            print("\nTop 20 Important Features:")
+            print(importance_df.to_string(index=False))
+            
+            # Save artifacts
+            model_dir = 'models'
+            os.makedirs(model_dir, exist_ok=True)
+            
+            # Save model
+            model_path = os.path.join(model_dir, 'model.json')
+            self.model.save_model(model_path)
+            mlflow.log_artifact(model_path)
+            
+            # Save preprocessor
+            preprocessor_path = os.path.join(model_dir, 'preprocessor.pkl')
+            self.feature_engineer.save_preprocessor(preprocessor_path)
+            mlflow.log_artifact(preprocessor_path)
+            
+            # Save feature names
+            feature_names_path = os.path.join(model_dir, 'feature_names.json')
+            with open(feature_names_path, 'w') as f:
+                json.dump(feature_names, f)
+            mlflow.log_artifact(feature_names_path)
+            
+            # Save feature importance
+            importance_path = os.path.join(model_dir, 'feature_importance.csv')
+            importance_df.to_csv(importance_path, index=False)
+            mlflow.log_artifact(importance_path)
+            
+            # Log model to MLflow Model Registry
+            mlflow.xgboost.log_model(
+                self.model,
+                "model",
+                registered_model_name="churn_predictor"
+            )
+            
+            
+            
             
