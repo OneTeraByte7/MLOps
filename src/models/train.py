@@ -83,3 +83,30 @@ class ChurnModelTrainer:
         print(f"Model trained (best iteration: {self.model.best_iteration})")
         
         return evals_result
+    
+    
+    def evalute_models(self, X, Y, dataset_name = 'test'):
+        dmatrix = xgb.DMatrix(X)
+        Y_pred_proba = self.model.predict(dmatrix)
+        Y_pred = (Y_pred_proba > 0.5).astype(int)
+        
+        metrics = {
+            f'{dataset_name}_auc': roc_auc_score(Y, Y_pred_proba),
+            f'{dataset_name}_accuracy': accuracy_score(Y, Y_pred),
+            f'{dataset_name}_precision': precision_score(Y, Y_pred),
+            f'{dataset_name}_reacll': recall_score(Y, Y_pred),
+            f'{dataset_name}_fl': f1_score(Y,Y_pred),
+        }
+        
+        cm = confusion_matrix(Y, Y_pred)
+        
+        print(f"\n{dataset_name.upper()} Metrics:")
+        for metric, value in metrics.items():
+            print(f" {metric}: {value:.4f}")
+            
+        print(f"\n Confusion Matrix:")
+        print(f" TN: {cm[0,0]}, FP: {cm[0,1]}")
+        print(f" FN: {cm[1,0]}, TP: {cm[1,1]}")
+        
+        return metrics, cm
+            
