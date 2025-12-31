@@ -190,6 +190,17 @@ class ChurnModelTrainer:
                 registered_model_name="churn_predictor"
             )
             
+            print("\n" + "="*50)
+            print("Training Complete!")
+            print("="*50)
+            print(f"✓ Test AUC: {test_metrics['test_auc']:.4f}")
+            print(f"✓ Model saved to {model_path}")
+            print(f"✓ MLflow run: {mlflow.active_run().info.run_id}")
             
+            return self.model, test_metrics
+
+if __name__ == "__main__":
+    trainer = ChurnModelTrainer()
+    model, metrics = trainer.run_training_pipeline()
             
             
