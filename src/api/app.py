@@ -47,4 +47,49 @@ class CustomerFeatures(BaseModel):
     api_calls_per_month: int = Field(..., ge=0, example=15000)
     days_since_last_login: int = Field(..., ge=0, example=2)
     
+class PredictionResponse(BaseModel):
+    customer_id: str
+    churn_probability: float
+    churn_prediction: str
+    risk_level: str
+    model_version: str
+    timestamp: str
+    confidance_score: float
     
+class BatchPredictionRequest(BaseModel):
+    customers: List[CustomerFeatures]
+    
+class ModelInfo(BaseModel):
+    model_a_version: str
+    model_b_version: Optional[str]
+    ab_testing_enables: bool
+    traffic_split: dict
+    
+def load_models():
+    global models, preprocessor
+    model_dir = 'models'
+    
+    preprocessor_path = os.path.join(model_dir, 'preprocessor.pkl')
+    if os.path.exists(preprocessor_path):
+        preprocessor = joblib.load(preprocessor_path)
+        print("Loaded Preprocessor")
+        
+    model_a_path = os.path.join(model_dir, 'model.json')
+    if os.path.exists(model_a_path):
+        models['model_a'] = xgb.Booster()
+        models['model_a'].load_model(model_a_path)
+        models['model_a_version'] = 'v1.0.0'
+        model_version_gauge.labels(version='model_a').set(1.0)
+        print("Loaded model A (v1.0.0)")
+        
+    model_b_path = os.path.join(model_dir, 'model_b.json')
+    if os.path.exists(model_b_path):
+        models['model_b'] = xbg.Booster()
+        models['model_b'].load_model(model_b_path)
+        models['model_b_version'] = 'v1.1.0'
+        model_version_gauge.labels(version = 'model_b').set(1.1)
+        print("Loaded model B (v1.1.0)")
+        
+    if not models:
+        raise RuntimeError("No models found! Train a model first")
+        
