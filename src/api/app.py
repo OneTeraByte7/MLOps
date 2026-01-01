@@ -172,3 +172,83 @@ def preprocess_input(customer: CustomerFeatures):
         
         return X_transformed
         
+        
+@app.post("/predict", response_model=PredictionResponse)
+@prediction_latency.time()
+async def predict(customer: CustomerFeatures):
+    try:
+        mode, model_version = select_model()
+        X = preprocess_input(customer)
+        dmatrix = xgb.DMatrix(X)
+        
+        churn_prob = float(model.predict(dmatrix)[0])
+        churn_pred = "Yes" if churn_prob > 0.5 else "No"
+        
+        if churn_prob < 0.3:
+            risk_level = "Low"
+        elif churn_prob < 0.7:
+            risk_level = "Medium"
+        else:
+            risk_level = "High"
+            
+        confidence = abs(churn_prob - 0.5) * 2
+        
+        prediction_counter.labels(
+            model_version = model_version,
+            prediction = churn_pred
+        ).inc()
+        
+        return PredictionResponse(
+            customer_id = customer.customer_id,
+            churn_probability = round(churn_prob, 4),
+            churn_prediction = churn_pred,
+            risk_level = risk_level,
+            model_version = model_version,
+            timestamp = datetime.now().isoformat(),
+            confidence_score = round(confidence, 4)
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
+    
+    
+@app.post("/batch_predict")
+async def batch_predict(request: BatchPredictionRequest):
+    try:
+        results = []
+        
+        for customer in request.customers:
+            pred = await predict(customer)
+            results.append(pred.dict())
+            
+        return {
+            "prediction": results,
+            "total_customers": len(results),
+            "high_risk_count": sum(1 for r in results if f['risk_level'] == 'High'),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except:
+        raise HTTPException(status_code=500, detail="Batch prediction error")
+    
+@app.get("/metrics")
+async def metrics():
+    return Response(content=generate_latest(), media_type="text/plain")
+
+app.post("/reload_models")
+async def reload_models():
+    try:
+        load_models()
+        return {"status": "success", "message": "Models reloaded successfully"}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reload models: {str(e)}")
+    
+    
+if __name__ == '__main__':
+    import uvicorn
+    uvicorn.run(
+        app,
+        host=config['serving']['host'],
+        port=config['serving']['port']
+    )
