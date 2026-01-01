@@ -143,7 +143,7 @@ def select_model():
     else:
         return models['model_b'], models['model_b_version']
     
-    def preprocess_input(cutomer: CustomerFeatures):
+def preprocess_input(customer: CustomerFeatures):
         
         df = pd.DataFrame([customer.dict()])
         
@@ -157,18 +157,18 @@ def select_model():
         df['support_burden'] = df['support_tickets'] * df['avg_ticket_resolution_days']
         df['days_inactive_ratio'] = df['days_since_last_login'] / np.maximum(df['account_age_days'], 1)
         df['total_contract_value'] = df['monthly_revenue'] * df['contract_length_months']
-        df['payment_reliabillty'] = df1 / (1 + df['payment_delays'])
+        df['payment_reliabillty'] = 1 / (1 + df['payment_delays'])
         df['nps_category'] = pd.cut(df['nps_score'],
                                     bins = [-1, 6, 8, 10],
                                     labels = ['Detractor', 'Passive', 'Promoter'])
         
         numeric_features = config['data']['numeric_features'] + ['revernue_per_user', 'engagement_score', 'support_burden', 'days_inactive_ration', 'total_contract value', 'payment_reliability']
         
-        categorical+features = config['data']['categorical_features'] + ['nps_category']
+        categorical_features = config['data']['categorical_features'] + ['nps_category']
         
         X = df[numeric_features + categorical_features]
         
         X_transformed = preprocessor.transform(X)
         
-        return X_transfomed
+        return X_transformed
         
