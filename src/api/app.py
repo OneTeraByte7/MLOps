@@ -92,4 +92,83 @@ def load_models():
         
     if not models:
         raise RuntimeError("No models found! Train a model first")
+    
+@app.lifespan("startup")
+async def startup_event():
+    load_models()
+    
+async def root():
+    return{
+        "service": "Churn Prediction API",
+        "version": "1.0.0",
+        "status": "healthy",
+        "endpoints": {
+            "predict": "/predict",
+            "batch_predict": "/batch_predict",
+            "health": "/health",
+            "metrics": "/metrics",
+            "model_info": "/model_info"
+        }
+    }
+    
+    
+    
+@app.get("/health")
+async def health_check():
+    return{
+        "status": "healthy",
+        "models_loaded": len(models),
+        "preprocessor_loaded": preprocessor is not None,
+        "timestamp": datetime.now().isoformat()
+    }        
+    
+@app.get("/model_info", response_model = ModelInfo)
+async def get_model_info():
+    return{
+        "model_a_version": models.get('model_a_version', 'unknown'),
+        "model_b_version": models.get('model_b_version'),
+        "ab_testing_enabled": config['ab_testing']['enabled'] and 'model_b' is models,
+        "traffic_split": config['ab_testing']['traffic_split']
+    }
+    
+def select_model():
+    if not config['ab_testing']['enabled'] or 'model_b' not in models:
+        return models['model_a'], models['model_a_version']
+    
+    
+    split = config['ab_testing']['traffic_split']
+    
+    if random.random() < split['model_a']:
+        return models['model_a'], models['model_a_version']
+    else:
+        return models['model_b'], models['model_b_version']
+    
+    def preprocess_input(cutomer: CustomerFeatures):
+        
+        df = pd.DataFrame([customer.dict()])
+        
+        df['revenue_per_user'] = df['monthly_revenue'] / df['team_size']
+        df['engagement_score'] = (
+            df['logins_per_month'] * 0.3 +
+            df['features_usage_depth'] * 100 * 0.3 + 
+            (df['api_calls_per_month'] / 1000) * 0.4
+        )
+        
+        df['support_burden'] = df['support_tickets'] * df['avg_ticket_resolution_days']
+        df['days_inactive_ratio'] = df['days_since_last_login'] / np.maximum(df['account_age_days'], 1)
+        df['total_contract_value'] = df['monthly_revenue'] * df['contract_length_months']
+        df['payment_reliabillty'] = df1 / (1 + df['payment_delays'])
+        df['nps_category'] = pd.cut(df['nps_score'],
+                                    bins = [-1, 6, 8, 10],
+                                    labels = ['Detractor', 'Passive', 'Promoter'])
+        
+        numeric_features = config['data']['numeric_features'] + ['revernue_per_user', 'engagement_score', 'support_burden', 'days_inactive_ration', 'total_contract value', 'payment_reliability']
+        
+        categorical+features = config['data']['categorical_features'] + ['nps_category']
+        
+        X = df[numeric_features + categorical_features]
+        
+        X_transformed = preprocessor.transform(X)
+        
+        return X_transfomed
         
