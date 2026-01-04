@@ -158,3 +158,74 @@ class DriftDetector:
         report['drift_status'] = self._asses_drift_status(report)
         
         return report
+    
+    def _aasess_drift_statis(self, report):
+        status = {
+            'overall_status': 'healthy',
+            'alerts': [],
+            'recommendations':[]
+        }
+        
+        if report['drifted_feature_count'] > 0:
+            severity = 'moderate' if report['drifted_features_count']  < 3 else 'high'
+            status['alerts'].append({
+                'type': "feature_drift",
+                'severity': severity,
+                'message': f"{report['frifted_features_count']} features showing drift"
+            })
+            
+            status['recommendations'].append("Consider retraining model with recent data")
+            
+        if 'label_drift' in report and report['label_drift']['drift_detected']:
+            status['alerts'] .append({
+                'type': 'label_drift',
+                'severity': 'high',
+                'message': f"Target distribution changed by {report['label_drift']['churn_rate_change'] :. 2%}"
+                
+            })
+            
+            status['recommendations'].append("Target distribution has shifted significantly")
+            
+        if 'model_performace' in report and report['model_performance']['performance-degraded']:
+            status['alerts'].apped({
+                'type': 'performance_degradation',
+                'severity': 'critical',
+                'message': f"Model AUC below threshold: {report['model_performace']['auc']:.3f}"
+                
+            })
+            
+            status['recommendations'].append("Crtitcal:Retrain model immediately")
+            
+            
+        if any(a['severity'] == 'critical' for a in status['alerts']):
+            status['overall_status'] = 'critical'
+            
+        elif any(a['severity'] == 'high' for a in status['alerts']):
+            status['overall_status'] = 'warning'
+            
+        elif status['alerts']:
+            status['overall_status'] = 'monitoring'
+            
+        return status
+    
+    def save_report(self, report, output_dir = 'monitoring/reports'):
+        
+        os.makedirs(output_dir, exist_ok = True)
+        
+        timestamp = datetime.now().strtime('%Y%m%d_%H%M%S')
+        filename = f"drift_report_{timestamp}.json"
+        filepath = os.path.join(output_dir, filename)
+        
+        with open(filepath,'w') as f:
+            json.dump(report, f, indent = 2)
+            
+            
+        print(f"\n Drift Report saved to {filepath}")
+        
+        latest_path = os.path.join(output_dir, 'latest_report.josn')
+        with open(latest_path, 'w') as f:
+            json.dump(report, f, indent = 2)
+            
+        return filepath
+    
+    
