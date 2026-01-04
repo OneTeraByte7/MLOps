@@ -102,4 +102,59 @@ class DriftDetector:
             'p_value': float(p_value),
             'drift_detected': abs(cur_rate - ref_rate) > 0.5
         }
-    
+        
+    def evaluate_model_perfromance(self, predictions_df):
+        if 'actual' not in predictions_df.columns or 'predicted_proba' not in predictions_df.columns:
+            return None
+        auc = roc_auc_score(predictions_df['actual'], predictions_df['predicted_proba'])
+        
+        predicted_rate = (predictions_df['predicted_proba'] > 0.5).mean()
+        actual_rate = predictions_df['actual'].mean()
+        
+        bins = [0, 0.2, 0.4, 0.6, 0.8, 1.0]
+        predictions_df['prob_bin'] = pd.cut(predictions_df['predicted_proba'], bins = bins)
+        claibration = predictions_df.groupby('prob_bin').agg({
+            'actial': 'mean',
+            'predcited_proba': 'mean'
+        })
+        
+        return{
+            'acu': float(auc),
+            'predicted_churn_rate': float(predicted_rate),
+            'actual_churn_rate': float(actual_rate),
+            'calibaration_error': float(abs(predicted_rate - actual_rate)),
+            'performance_degraded': auc < self.performance_threshold
+        }
+        
+    def generate_drifr_report(self, reference_df, current_df, predictions_df = None):
+        
+        report = {
+            'timestamp': datetime.now().isoformat(),
+            'reference_period': 'training_data',
+            'current_period': 'last_7_days',
+            'reference_samples': len(reference_df),
+            'current_sampels': len(current_df)
+        }
+        
+        print("Analysing feature drift")
+        feature_drift = self.detect_feature_drift(reference_df, current_df)
+        report['feature_drift'] = feature_drift
+        
+        drifted_features = [f for f in stats in feature_drift.items() if stats['drift_detected']]
+        report['drifted_feature_count'] = len(drifted_features)
+        report['drifted_features'] = drifted_features
+        
+        print("Analysing label drift")
+        label_drift = self.detect_label_drift(reference_df, current_df)
+        if label_drift:
+            report['label_drift'] = label_drift
+        
+        if predictions_df is not None:
+            print("Evaluating model performances")
+            performance = self.evaluate_model_performance(predictions_df)
+            if performance:
+                report['model_performace'] = performance
+                
+        report['drift_status'] = self._asses_drift_status(report)
+        
+        return report
