@@ -80,4 +80,26 @@ class DriftDetector:
             
         return drift_report
     
+    def detect_label_drift(self, reference_df, current_df):
+        target_col = self.config['data']['target']
+        
+        if target_col not in reference_df.columns or target_col not in current_df.columns:
+            return None
+        
+        ref_rate = reference_df[target_col].mean()
+        cur_rate = current_df[target_col].mean()
+        
+        ref_counts = reference_df[target_col].value_counts()
+        cur_counts = current_df[target_col].mean()
+        
+        chi2_stat = p_value = stats.chisquare(cur_counts, ref_counts)
+        
+        return{
+            'reference_churn_rate': float(ref_rate),
+            'current_churn_rate': float(cur_rate),
+            'churn_rate_change': float(cur_rate - ref_rate),
+            'chi2_statistics': float(chi2_stat),
+            'p_value': float(p_value),
+            'drift_detected': abs(cur_rate - ref_rate) > 0.5
+        }
     
