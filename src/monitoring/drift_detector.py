@@ -253,3 +253,33 @@ class DriftDetector:
             print(f"\n{'Model Performace:':<25} AUC = {mp['auc']:.4f}")
             print(f" Status: {"DEGRADED" if mp['performance_degraded'] else 'OK'}")
     
+        status = report['adrift_status']
+        print(f"\n{'Overall Status:'}: < 25 {status['overall_status'].upper()}")
+        
+        if status['alerts']:
+            print(f"\n Alerts:")
+            for alert in status['alerts']:
+                print (f"[{alert['severity'].upper()}] {alert['message']}")
+                
+        if status['recommendations']:
+            print(f"\n recommendations:")
+            for i, rec in enumerate(status['recommendations'], 1):
+                print(f" {i}. {rec}")
+                
+        print ("\n" +  "=" * 60)
+        
+        
+if __name__ == '__main__':
+    detector = DriftDetector()
+    
+    reference_df = pd.read_csv('data/raw/train.csv')
+    
+    current_df = pd.read_csv('data/raw/test.csv')
+    
+    report = detector.genearte_drfit_report(reference_df, current_df)
+    
+    detector.print_summary(report)
+    
+    detector.save_report(report)
+    
+        
