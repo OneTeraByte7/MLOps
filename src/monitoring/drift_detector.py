@@ -228,4 +228,28 @@ class DriftDetector:
             
         return filepath
     
+    def print_summary(elf, report):
+        print("\n" + "=" * 60)
+        print("DRIFT DETECTION REPORT")
+        print("="*60)
+        
+        print(f"\nTimestamp: {report['timestamp']}")
+        print(f"\n Samples: Reference = {report['reference_samples']}, Current = {report['current_samples']}")
+        
+        print(f"\n {'Feature Drift:': < 25} {report['drifted_features_count']} features drifted")
+        if report['frifted_features']:
+            for feature in report['drfited_features']:
+                psi = report['feature_drift'][feature]['psi']
+                print(f" - {feature: < 30}  PSI = {psi:.4f}")
+                
+                
+        if 'label_drift' in report:
+            ld = report['label_drift']
+            print(f"\n{'Label Drift:':<25} {'Yes' if ld['drift_detected'] else 'No'}")
+            print(f" Churn rate change: {ld['churn_rate_change']:+.2%}")
+            
+        if 'model_performance' in report:
+            mp = report['model_performance']
+            print(f"\n{'Model Performace:':<25} AUC = {mp['auc']:.4f}")
+            print(f" Status: {"DEGRADED" if mp['performance_degraded'] else 'OK'}")
     
