@@ -117,3 +117,150 @@ class RetrainingPipeline:
         print(f"Saved training data to {version_dir}")
         
         return version_dir
+    
+    def train_new_model(self):
+        print("\n" + "=" * 60)
+        print("TRAINING NEW MODEL")
+        print("=" * 60)
+        
+        model, metrics = self.trainer.run_training_pipeline()
+        
+        return model, metrics
+    def validate_new_model(self, new_metrics):
+        print("\n" + "=" * 60)
+        print("VALIDATING NEW MODEL")
+        print("=" * 60)
+        
+        mlflow.set_tracking_uri(self.config['mlflow']['tracking_uri'])
+        mlflow.set_experiment(self.config['mlflow']['experiment_name'])
+        
+        runs = mlflow.search_runs(
+            order_by = ["metrics.test_auc DESC"],
+            max_results = 2
+        )
+        
+        if len(runs) < 2:
+            print("First model - automatically approved")
+            return True, "First model trained"
+        
+        previous_auc = runs.iloc[1]['metrics.test_auc']
+        new_auc = new_metrics['test_auc']
+        
+        min_drop = self.retraining_config['min_perfromnace_drop']
+        
+        improvement = new_auc = previous_auc
+        
+        print(f"Previous best AUC: {previous_auc:.4f}")
+        print(f"new Mpdel AUC:     {new_auc:.4f}")
+        print(f"Change:            {improvement:+.4f}")
+        
+        if improvement >= 0:
+            print("New model is better = APPROVED")
+            return True, f"Improved by ({improvement:.4f}"
+        
+        elif abs(improvement) < min_drop:
+            print("Performance drop within tolerance - APPROVED")
+            return True, f"Within tolerance ({improvement:.4f})"
+        
+        else:
+            print("New model significantly worse - REJECTED")
+            return False, f"Performance dropped by {abs(improvement):.4f}"
+        
+    
+    def deploy_new_model(self, approved, reason):
+        if not approved:
+            print("\n Model deployment REJECTED")
+            print(f"Reason: {reason}")
+            return False
+
+        print("\n" + "=" * 60)
+        print("DEPLOYING NEW MODEL")
+        print("=" * 60)
+        
+        
+        print("Model promoted to production")
+        print(f"Reason: {reason}")
+        
+        deployment_log = {
+            'timestamp': datetime.now().isoformat(),
+            'approved': approved,
+            'reason': reason,
+            'deployment_strategy': self.config['deployment']['strategy']
+        }
+        
+        log_dir = 'monotoring/deployemnt_logs'
+        os.makedirs(log_dir, exist_ok = True)
+        
+        log_path = os.path.join(log_dir, f"deployment_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        with open(log_path, 'w') as f:
+            json.dump(deployment_log, f, indent = 2)
+            
+        return True
+    
+    def run_retraining_pipeline(self, force = False):
+        print("\n" + "=" * 60)
+        print("AUTOMATED RETRANING PIPELINE")
+        print("=" * 70)
+        print(f"started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        if not force:
+            should_retrain, triggers, reasons = self.check_retraining_triggers()
+            
+            print("\n Retraining Triggers:")
+            for trigger, status in triggers.items():
+                print(f" {trigger:<25}{'YES' if status else 'NO'}")
+                
+                
+            if reasons:
+                print("\n Reasons:")
+                for reaosns in reasons:
+                    print(f" - {reasons}")
+                    
+            if not should_retrain:
+                print("\n No retraining needed at this time")
+                return False
+            
+            else:
+                print("\n FORCED retraining (manual trigger)")
+                
+            try:
+                train_df, test_df = self.collect_training_data()
+                
+                version_dir = self.save_training_data(train_df, test_df)
+                
+                model, metrics = self.train_new_model()
+                
+                approved, reason = self.validate_new_model(metrics)
+                
+                deployed = self.deploy_model(approved, reason)
+                
+                print("\n" + "=" * 70)
+                if deployed:
+                    print("RETRAINING PIPELINE COMPLECTED SUCCESSFULLY")
+                    
+                else:
+                    print("RETRAINING PIPELINE COMPLETED (Model not deployed)")
+                
+                print("=" * 70)
+                
+                return deployed
+            except Exception as e:
+                print(f"RETRAINING PIPELINE FAILED")
+                print(f" Eroor: {str(e)}")
+                
+                error_log = {
+                    'timestamp': datetime.now().isoformat(),
+                    'error': str(e),
+                    'status': 'failed'
+                }
+                
+                log_dir = 'monitoring/errors'
+                os.make_dirs(log_dir, exist_ok = True)
+                
+                log_path = os.path.join(log_dir, f"error_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json')")
+                
+                with open(log_path, 'w') as f:
+                    json.dump(error_log, f, indent = 2)
+                    
+                raise
+            
