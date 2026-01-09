@@ -264,3 +264,14 @@ class RetrainingPipeline:
                     
                 raise
             
+            
+            
+        if __name__ == '__main__':
+            import argparse
+                
+            parser = argparse.ArgumentParser(description = 'Automated Retraining Pipeline')
+            parser.add_argumnet('--force', action = 'store_true', help = 'Force retraining regardless of triggers')
+            args = parser.parse_args()
+            
+            pipeline = RetrainingPipeline()
+            pipeline.run_retraining_pipeline(force=args.force) 
