@@ -28,13 +28,15 @@ class ChurnModelTrainer:
         self.feature_engineer = FeatureEngineer(config_path)
         
         mlflow.set_tracking_uri(self.config['mlflow']['tracking_uri'])
-        mlflow.set_experiment(self.config['mlflow']['experiemnt_name'])
+        mlflow.set_experiment(self.config['mlflow']['experiment_name'])
         
     def load_data(self):
-        data_dir = self.config['data']['raw_dir']
+        # Get absolute path relative to project root
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        data_dir = os.path.join(project_root, self.config['data']['raw_dir'])
         
         train_path = os.path.join(data_dir, self.config['data']['train_file'])
-        test_path = os.path.join(data_dir, self.cofig['data']['test_file'])
+        test_path = os.path.join(data_dir, self.config['data']['test_file'])
         
         train_df = pd.read_csv(train_path)
         test_df = pd.read_csv(test_path)
@@ -45,11 +47,11 @@ class ChurnModelTrainer:
         return train_df, test_df
     
     def prepare_data(self, train_df, test_df):
-        X_train, Y_train, feature_names = self.feature_enginerr.fit_transform(train_df)
+        X_train, Y_train, feature_names = self.feature_engineer.fit_transform(train_df)
         
         X_test, Y_test, _ = self.feature_engineer.transform(test_df)
         
-        val_split = self.config['model']['vlidation_split']
+        val_split = self.config['model']['validation_split']
         
         X_train, X_val, Y_train, Y_val = train_test_split(
             X_train, Y_train, test_size = val_split, random_state = 42, stratify = Y_train
@@ -62,10 +64,10 @@ class ChurnModelTrainer:
     def train_model(self, X_train, Y_train, X_val, Y_val):
         
         dtrain = xgb.DMatrix(X_train, label = Y_train)
-        dval = xgb.Dmatrix(X_val, label = Y_val)
+        dval = xgb.DMatrix(X_val, label = Y_val)
         
         params = self.model_params.copy()
-        early_stopping = self.config['mode']['early_stopping_rounds']
+        early_stopping = self.config['model']['early_stopping_rounds']
         
         evals = [(dtrain, 'train'), (dval, 'val')]
         evals_result = {}
@@ -73,7 +75,7 @@ class ChurnModelTrainer:
         self.model = xgb.train(
             params,
             dtrain,
-            num_boost_round = params['n_estimtors'],
+            num_boost_round = params['n_estimators'],
             evals = evals,
             early_stopping_rounds = early_stopping,
             evals_result = evals_result,
@@ -85,7 +87,7 @@ class ChurnModelTrainer:
         return evals_result
     
     
-    def evalute_models(self, X, Y, dataset_name = 'test'):
+    def evaluate_model(self, X, Y, dataset_name = 'test'):
         dmatrix = xgb.DMatrix(X)
         Y_pred_proba = self.model.predict(dmatrix)
         Y_pred = (Y_pred_proba > 0.5).astype(int)
@@ -111,10 +113,10 @@ class ChurnModelTrainer:
         return metrics, cm
     
     def run_training_pipeline(self):
-        with mlflow.star_run(run_name = f"training_{datetime.now().strtime('%Y%m%d_%H%M%S')}"):
+        with mlflow.start_run(run_name = f"training_{datetime.now().strftime('%Y%m%d_%H%M%S')}"):
             
-            mlflow.lof_params(self.model_params)
-            mlflow.log_params("validation_split", self.config['model']['validation_split'], self.config['model']['validation_split'])
+            mlflow.log_params(self.model_params)
+            mlflow.log_param("validation_split", self.config['model']['validation_split'])
                               
             train_df, test_df = self.load_data()
             
