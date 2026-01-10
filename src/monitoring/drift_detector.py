@@ -4,7 +4,7 @@ from scipy import stats
 from sklearn.metrics import roc_auc_score
 import json
 import yaml
-from datetime import datetime, timedate
+from datetime import datetime
 import os
 import warnings
 warnings.filterwarnings('ignore')
@@ -15,7 +15,7 @@ class DriftDetector:
             self.config = yaml.safe_load(f)
             
         self.drift_threshold = self.config['monitoring']['drift_threshold']
-        self.performance_threshold = self.config['monotoring']['performance_threshold']
+        self.performance_threshold = self.config['monitoring']['performance_threshold']
         
         self.reference_stats = None
         self.reference_perfromace = None
@@ -26,7 +26,7 @@ class DriftDetector:
         #0.1 <= PSI < 0.2: Moderate change
         #PSI >= 0.2: Significant change
         
-        breakpoints = np.percentile(reference, np.linespce(0, 100, bins+1))
+        breakpoints = np.percentile(reference, np.linspace(0, 100, bins+1))
         breakpoints = np.unique(breakpoints)
         
         if len(breakpoints) < 2:
@@ -42,8 +42,8 @@ class DriftDetector:
         
         return psi
     
-    def claculate_ks_statistic(self, reference, current):
-        ks_stat, p_value = stats.ks_2amp(reference, current)
+    def calculate_ks_statistic(self, reference, current):
+        ks_stat, p_value = stats.ks_2samp(reference, current)
         return ks_stat, p_value
     
     def detect_feature_drift(self, reference_df, current_df):
