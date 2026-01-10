@@ -1,1 +1,43 @@
 /venv
+ # Virtual Environment
+venv/
+env/
+ENV/
+     
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*/__pycache__/
+
+     
+# MLflow
+mlruns/
+mlflow.db
+
+Models
+models/
+
+# Data
+data/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
