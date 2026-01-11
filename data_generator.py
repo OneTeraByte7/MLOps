@@ -5,7 +5,7 @@ import os
 
 np.random.seed(42)
 
-#Generates real SaaS data
+#Generates real SaaS data for churn 
 def generate_churn_data(n_customers=10000, output_dir='data/raw'):
     os.makedirs(output_dir, exist_ok=True)
     
