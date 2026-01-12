@@ -190,3 +190,98 @@ class ChurnExplainer:
         print(f"Force plot saved to {output_path}")
         
     
+    def generate_waterfall_plot(self, X:np.ndarray, customer_id: str = None,
+                                output_path: str = 'monitoring/reports/waterfall_plot.png'):
+        
+        shap_values = self.explainer.shap_values(X)
+        base_value = self.explainer.expected_value
+        explanation = shap.Explanation(
+            values = shap_values[0],
+            base_values = base_value,
+            data = X[0],
+            feature_names = self.feature_names
+        )
+        
+        plt.figure(figsize = (10, 8))
+        shap.waterfall_plot(explanation, max_display = 15, show=False)
+        
+        os.makedirs(os.path.dirname(output_path), exist_ok = True)
+        plt.tight_layout()
+        plt.savefig(output_path, dpi = 150, bbox_inches = 'tight')
+        plt.close()
+        
+        print(f"Waterfall plot saved to {output_path}")
+        
+    def generate_dependance_plot(self, X_sample: np.ndarray, feature_name: str,
+                                 output_path: str = None):
+        
+        if feature_name not in self.feature_names:
+            print(f"feature '{feature_name}' not found")
+            return
+        
+        feature_idx = self.feature_names.index(feature_name)
+        shap_values = self.explainer.shap_values(X_sample)
+        
+        plt.figure(figsize=(10, 6))
+        shap.dependance_plot(
+            feature_idx,
+            shap_values,
+            X_sample,
+            feature_names = self.feature_names,
+            show=False
+        )
+        
+        if output_path is None:
+            output_path = f'monitoring/reports/dependance_{feature_name}.png'
+            
+        os.makedirs(os.path.dirname(output_path), exist_ok = True)
+        plt.tight_layout()
+        plt.savefig(output_path, dpi = 150, bbox_inches = 'tight')
+        plt.close()
+        
+        print(f"dependance plot saved to {output_path}")
+        
+    def explain_model_globally(self, X_sample: np.ndarray,
+                               output_dir: str = 'monitorinf.reports/explanability'):
+        
+        print("\n" + "=" * 60)
+        print("GENERATING GLOBAL MODEL EXPLANATION")
+        print("=" * 60)
+        
+        os.makedirs(output_dir, exist_ok = True)
+        
+        print("\n 1. Creating Summary Plot")
+        self.generate_global_importance(
+            X_sample,
+            f"{output_dir}/global_importance.png"
+        )
+        
+        print("\n 2. Calculating feature importance values")
+        shap_values = self.explainer.shap_values(X_sample)
+        feature_importance = np.abs(shap_values).mean(axis = 0)
+        
+        importance_df = pd.DataFrame({
+            'feature': self.feature_names,
+            'importance': feature_importance
+        }).sort_values('importance', ascending = False)
+        
+        importance_df.to_csv(f"{output_dir}/feature_importance.csv", idex = False)
+        
+        
+        
+        print("\n 3, Creating dependence plots for top 5 features")
+        top_features = importance_df.head(5)['feature'].tolist()
+        
+        for feat in top_features:
+            self.generate_dependance_plot(
+                X_sample,
+                feat,
+                f"{output_dir}/dependence_{feat}.png"
+            )
+            
+        print("\n" + "=" * 60)
+        print("GLOBAL EXPLANATION COMPLETE")
+        print(f"Reports saved to {output_dir}/")
+        print("=" * 60)
+        
+        return importance_df
