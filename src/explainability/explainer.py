@@ -51,3 +51,75 @@ class ChurnExplainer:
             'shap_values': shap_values[0].tolist(),
             'feature_values': X[0].tolist()
         }
+        
+    def explain_batch(self, X: np.ndarray, customer_ids: List[str] = None) -> List[Dict]:
+        
+        if customer_ids is None:
+            customer_ids = [f"customer_{i}" for i in range(len(X))]
+            
+        explanations = []
+        for i, cust_id in enumerate(customer_ids):
+            exp = self.explain_predictions(X[i:i+1], cust_id)
+            explanations.append(exp)
+            
+        return explanations
+
+    def _get_feature_contribution(self, feature_values: np.ndarray,
+                                  shap_values: np.ndarray) -> List[Dict]:
+        
+        contributions = []
+        for i, (feat_name, feat_val, shap_val) in enumerate(
+            zip(self.feature_names, feature_values, shap_values)
+        ):
+            contributions.append({
+                'feature': feat_name,
+                'value': float(feat_val),
+                'impact': float(shap_val),
+                'abs_impact': abs(float(shap_val))
+            })
+            
+        contributions.sort(key=lambda x: x['abs_impact'], reverse = True)
+        
+        return contributions
+    
+    def _get_top_drivers(self, contributions: List[Dict], top_k: int = 5) -> List[Dict]:
+        
+        top_drivers = []
+        for contrib in contributions[:top_k]:
+            direction = "increase" if contrib['impact'] > 0 else "decreases"
+            
+            top_drivers.append({
+                'feature': contrib['feature'],
+                'value': contrib['value'],
+                'impact': contrib['impact'],
+                'direction': direction,
+                'importance_rank': len(top_drivers) + 1
+            })
+            
+        return top_drivers
+    
+    def _generate_explanation_text(self, prediction: float,
+                                top_drivers: List[Dict],
+                                customer_id: str = None) -> str:
+        
+        risk_level = "HIGH" if prediction > 0.7 else "MEDIUM" if prediction > 0.3 else "LOW"
+        explanation = f"Churn Risk: {risk_level} ({prediction:.1%})\n\n"
+        
+        if customer_id:
+            explanation += f"Customer {customer_id} analysis: \n\n"
+            
+        explanation += "Top factors influencing this prediction: \n\n"
+        
+        for i, driver in enumerate(top_drivers, 1):
+            feature = driver['feature'].replace('_', ' ').title()
+            impact_pct = abs(driver['impact']) * 100
+            direction = driver['direction']
+            
+            explanation += f"{i}. {feature} (value: {driver['value']:.2f})\n"
+            explanation += f"{direction.capitalize()} churn risk by {impact_pct:.1f}%\n\n"
+        
+        explantion += self._generate_recommendations(prediction, top_drivers)
+        
+        return explanation
+    
+    def        
