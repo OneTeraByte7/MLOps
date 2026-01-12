@@ -285,3 +285,59 @@ class ChurnExplainer:
         print("=" * 60)
         
         return importance_df
+    
+
+if __name__ == "__main__":
+    import sys
+    sys.append('src')
+    from features.feature_engineering import FeatureEngineer
+    
+    test_df = pd.read_csv('data/raw/test_data.csv')
+    
+    fe = FeatureEngineer()
+    fe.load_preprocessor('models/preprocessor.pkl')
+    X_test, Y_test, _ = fe.transform(test_df)
+    
+    explainer = ChurnExplainer()
+    
+    print("\n" + "=" * 60)
+    print("EXAMPLE 1: Single Customer Explanation")
+    print("=" * 60)
+    
+    customer_idx = 0
+    explanation = explainer.explain_prediction(
+        X_test[customer_idx:customer_idx+1],
+        customer_id = test_df.iloc[customer_idx]['customer_id']
+        )
+    
+    print(explanation['explanation_text'])
+    
+    print("\n" + "=" * 60)
+    print("EXAMPLE 2: Generating Visualization")
+    print("="*60)
+    
+    high_risk_idx = np.where(explainer.model.predict(xgb.DMatrix(X_test)) > 0.7)[0]
+    if len(high_risk_idx) > 0:
+        idx = high_risk_idx[0]
+        explainer.generate_force_plot(
+            X_test[idx:idx+1],
+            test_df.iloc[idx]['customer_id']
+        )
+        
+        explainer.generate_waterfall_plot(
+            X_test[idx:idx+1],
+            test_df.iloc[idx]['customer_id']
+        )
+        
+    print("\n" + "=" * 60)
+    print("EXAMPLE 3: GLobal Model Analysis")
+    print("="*60)
+    
+    sample_size = min(1000, len(X_test))
+    sample_indices = np.random.choice(len(X_test), sample_size, replace = False)
+    X_sample = X_test[sample_indices]
+    
+    importance_df = explainer.explain_model_globally(X_sample)
+    
+    print("\n Top 10 Important Features: ")
+    print(importance_df.head(10).to_string(index = False))
