@@ -122,4 +122,71 @@ class ChurnExplainer:
         
         return explanation
     
-    def        
+    def _generate_recommendations(self, prediction: float, top_drivers: List[Dict]) -> str:
+        
+        recommendations = "\n Recommended Actions: \n"
+        
+        if prediction > 0.7:
+            recommendations += " URGENT: High churn risk detetcted \n"
+            
+            for driver in top_drivers[:3]:
+                feat = driver['feature']
+                
+                if 'days_since_last_login' in feat and driver['impact'] > 0:
+                    recommendations += " # Customer is inactive - send re-engagement email \n"
+                    
+                if 'support_tickets' in feat and driver['impact'] > 0:
+                    recommendations += " # High support burden - schedule customer success call \n"
+                    
+                if 'nps_score' in feat and driver['impact'] > 0:
+                    recommendations += "# Low satisfaction - offer product training session \n"
+                    
+                if 'payment_delays' in feat and driver['impact'] > 0:
+                    recommendations += " # Payment issues - contact billing team\n"
+                    
+                if 'feature_usuage' in feat and driver['impact'] > 0:
+                    recommendations += " # Low engagement - provide feature onboarding \n"
+                    
+        elif prediction > 0.3:
+            recommendations += " # Monitor closely ad consider preventive outreach \n"
+            
+        else:
+            recommendations += " # Customer appears healthy - maintain regular touchpoints \n"
+            
+        return recommendations
+    
+    def generate_global_importance(self, X_sample: np.ndarray,
+                                   output_path: str = 'monitoring/reports/feature_importance.png'):
+    
+        shap_values = self.explainer.shap_values(X_sample)
+        
+        plt.figure(figsize = (10, 8))
+        shap.summary_plot(shap_values, X_sample, feature_names = self.feature_names, show = False, max_display = 20)
+        
+        os.makedirs(os.path.dirname(output_path), exist_ok = True)
+        plt.tight_layout()
+        plt.savefig(output_path, dpi = 150, bbox_inches = 'tight')
+        plt.close()
+        
+        print(f" GLobal importance plot saved to {output_path}")
+        
+    def generate_force_plot(self, X: np.ndarray, customer_id: str = None,
+                           output_path: str = 'monitoring/reports/force_plot.html'):
+        
+        shap_values = self.explainer.shap_values(X)
+        base_value = self.explainer.expected_value
+        
+        force_plot = shap.force_plot(
+            base_value,
+            shap_values[0],
+            X[0],
+            feature_names = self.feature_names,
+            matplotlib = False,
+        )
+        
+        os.makedirs(os.path.dirname(output_path), exist_ok = True)
+        shap.save_html(output_path, force_plot)
+        
+        print(f"Force plot saved to {output_path}")
+        
+    
