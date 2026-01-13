@@ -205,4 +205,70 @@ class SegementAnalyzer:
         
         return {}
     
+    def generate_segment_report(self, df: pd.DataFrame,
+                                Y_true_col: str = 'churned',
+                                Y_pred_col: str = 'predicted_proba',
+                                output_path: str = 'monitoring/reports/segment_analysis.json'):
+        
+        print("\n" + "=" * 60)
+        print("SEGMENT PERFORMANCE ANALYSIS")
+        print("=" * 60)
+        
+        df = self.create_buckets(df)
+        
+        report = {
+            'timestamp': pd.Timestamp.now().isoformat(),
+            'total_samples': len(df),
+            'segment_results': {}
+        }
+        
+        for segment_col in self.segment_columns:
+            if segment_col not in df.columns:
+                continue
+            
+            print(f"\n Analyzing: {segment_col}")
+            
+            segment_results = self.analyze_segment(df, segment_col, Y_true_col, Y_pred_col)
+            
+            if not segment_results.empty:
+                gaps = self.detect_performance_gaps(segment_results)
+                
+                report['segments'][segment_col] = {
+                    'results': segment_results.to_dict('records'),
+                    'performance_gaps': gaps
+                }
+                
+                print(f"\n Segment analyzed: {len(segment_results)}")
+                if gaps:
+                    print(f"Performance gaps detected: {len(gaps)}")
+                    for gap in gaps:
+                        print(f" - {gap['metric']} : {gap['difference']:.3f}"
+                              f"({gap['min_segment']} vs {gap['max_segment']})")
+                        
+        print("\n Fairness Analysis: ")
+        if 'subscription_tier' in df.columns:
+            df['is_enterprise'] = (df['subscription_tier'] == 'Enterprise').astype(int)
+            fairness = self.calculate_fairness_metrics(df, 'is_enterprise', Y_true_col, Y_pred_col)
+            
+            if fairness:
+                report['fairness_analysis'] = fairness
+                print(f"\n Attribute: {fairness['attribute']}")
+                print(f" Demographic Parity DIff: {fairness['demographic_parity_diff']:.3f}")
+                if fairness['equal_opportunity_diff'] is not None:
+                    print(f"Equal Opportunity Diff: {fairness['equal_opportunity_diff']:.3f}")
+                    
+                    
+                if not fairness['demographic_parity_pass']:
+                    print("Demographic parity violation detected")
+                    
+        os.makedirs(os.path.dirname(output_path), exist_ok = True)
+        with open(output_path, 'w') as f:
+            json.dump(report, f, indent = 2, default = str)
+            
+        
+        print("\n" + "=" * 60)
+        print(f"Segment analysis report saved to {output_path}")
+        print("=" * 60)
+        
+        return report
     
