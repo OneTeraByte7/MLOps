@@ -61,4 +61,41 @@ class SegementAnalyzer:
         
         return metrics
     
+    def analyze_segment(self, df: pd.DataFrame, segment_col: str,
+                        Y_true_col: str = 'churned',
+                        y_pred_col: str = 'predicted_proba') -> pd.DataFrame:
+        
+        if segment_col not in df.columns:
+            print(f"Warning: {segment_col} not founf in data")
+            return pd.DataFrame()
+        
+        results = []
     
+    
+        for segment_value in df[segment_col].unique():
+            if pd.isna(segment_value):
+                continue
+            
+            segment_df = df[df[segment_col] == segment_value]
+        
+            if len(segment_df) < 10:
+                continue
+            
+            metrics = self.calculate_metrics(
+                segment_df[Y_true_col].values,
+                segment_df[y_pred_col].values
+            )
+            
+            metrics['segment'] = segment_value
+            results.append(metrics)
+            
+        result_df = pd.DataFrame(results)
+        
+        if not results_df.empty:
+            results_df = results_df.sort_values('sample_size', ascending = False)
+            
+        return results_df
+    
+    
+        
+        
