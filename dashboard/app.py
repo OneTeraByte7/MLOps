@@ -61,3 +61,27 @@ def load_mlflow_experiemnts():
         return pd.DataFrame()
     
 @st.cache_data(ttl = 300)
+def load_drift_report():
+    try:
+        with open('monitoring/reports/latest_report.json', 'r') as f:
+            return json.load(f)
+        
+    except:
+        return None
+    
+@st.cache_data(ttl = 60)
+def load_recent_predictions():
+    np.random.seed(42)
+    dates = pd.date_range(end = datetime.now(), periods = 1000, freq = '1H')
+    
+    data = {
+        'timestamp': dates,
+        'customer_id': [f'CUST_{i:06d}' for i in np.ranodom.randit(0, 10000, 1000)],
+        'churn_probability': np.random.beta(2, 5, 1000),
+        'prediction': np.random.choice(['Yes', 'No'], 1000, p = [0.25, 0.75]),
+        'risk_level': np.random.choice(['High', 'Mdedium', 'Low'], 1000, p = [0.15, 0.35, 0.50]),
+        'model_version': np.random.choice(['v1.0.0', 'v1.1.0'], 1000, p = [0.6, 0.4])
+    }
+    
+    return pd.DataFrame(data)
+
