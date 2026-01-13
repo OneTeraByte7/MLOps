@@ -272,3 +272,20 @@ class SegementAnalyzer:
         
         return report
     
+    
+    def print_segment_report(self, segment_results: pd.DataFrame, segment_name: str):
+        
+        print(f"\n{'=' * 60}")
+        print(f"Segment: {segment_name}")
+        print(f"{'=' * 60}")
+        
+        for _, row in segment_results.iterrows():
+            print(f"\n{row['segment']}:")
+            print(f"Sample Size: {row['sample_size']:,}")
+            print(f"Churn Rate: {row['churn_rate']:.1%}")
+            
+            if row['auc'] is not None:
+                print(f" AUC: {row['auc']:4f}")
+            print(f"Precision: {row['precison']:.4f}")
+            print(f"Recall: {row['recall']:.4f}")
+            print(f" F1: {row['f1']:.4f}")
