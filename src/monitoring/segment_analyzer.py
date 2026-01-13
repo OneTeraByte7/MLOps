@@ -10,9 +10,9 @@ from typing import Dict, List
 import warnings
 warnings.filterwarnings('ignore')
 
-class SegementAnalyzer:
-    def __init__(self, segemnt_columns = None):
-        self.segemnt_columns = segemnt_columns or [
+class SegmentAnalyzer:
+    def __init__(self, segment_columns = None):
+        self.segment_columns = segment_columns or [
             'subscription_tier',
             'account_age_bucket',
             'revenue_bucket',
@@ -39,7 +39,7 @@ class SegementAnalyzer:
             
         return df
     
-    def calculate_metrics(self, Y_true: np.ndarrat, Y_pred_proba: np.ndarray) -> Dict:
+    def calculate_metrics(self, Y_true: np.ndarray, Y_pred_proba: np.ndarray) -> Dict:
         Y_pred = (Y_pred_proba > 0.5).astype(int)
         
         try:
@@ -54,9 +54,9 @@ class SegementAnalyzer:
             'predicted_churn_rate': Y_pred.mean(),
             'auc': auc,
             'accuracy': accuracy_score(Y_true, Y_pred),
-            'precision': precision_score(Y_true, Y_pred, sero_divison = 0),
-            'recall': recall_score(Y_true, Y_pred, sero_divison = 0),
-            'f1': f1_score(Y_true, Y_pred, sero_divison = 0)
+            'precision': precision_score(Y_true, Y_pred, zero_division = 0),
+            'recall': recall_score(Y_true, Y_pred, zero_division = 0),
+            'f1': f1_score(Y_true, Y_pred, zero_division = 0)
         }
         
         return metrics
@@ -91,10 +91,10 @@ class SegementAnalyzer:
             
         result_df = pd.DataFrame(results)
         
-        if not results_df.empty:
-            results_df = results_df.sort_values('sample_size', ascending = False)
+        if not result_df.empty:
+            result_df = result_df.sort_values('sample_size', ascending = False)
             
-        return results_df
+        return result_df
     
     
     def detect_performance_gaps(self, segment_results: pd.DataFrame,
@@ -117,17 +117,17 @@ class SegementAnalyzer:
             diff = max_value - min_value
             
             if diff > threshold:
-                max_segment = segment_results.loc[segment_results[metric].idmax(), 'segment']
-                min_segment = segment_results.loc[segment_results[metric].idmin(), 'segment']
+                max_segment = segment_results.loc[segment_results[metric].idxmax(), 'segment']
+                min_segment = segment_results.loc[segment_results[metric].idxmin(), 'segment']
                 
                 gaps.append({
                     'metric': metric,
                     'difference': diff,
-                    'max_segment': max_segment.max,
+                    'max_segment': max_segment,
                     'max_value': max_value,
                     'min_segment': min_segment,
                     'min_value': min_value,
-                    'serverity': 'high' if diff > 0.15 else 'medium'
+                    'severity': 'high' if diff > 0.15 else 'medium'
                 })
                 
         return gaps
@@ -195,7 +195,7 @@ class SegementAnalyzer:
             fairness_results = {
                 'attribute': protected_attribute,
                 'group_metrics': group_metrics,
-                'demographic_parity_difference': dp_diff,
+                'demographic_parity_diff': dp_diff,
                 'equal_opportunity_diff': eo_diff,
                 'demographic_parity_pass': dp_diff < 0.1,
                 'equal_opportunity_pass': eo_diff < 0.1 if eo_diff is not None else None
@@ -219,7 +219,7 @@ class SegementAnalyzer:
         report = {
             'timestamp': pd.Timestamp.now().isoformat(),
             'total_samples': len(df),
-            'segment_results': {}
+            'segments': {}
         }
         
         for segment_col in self.segment_columns:
@@ -289,3 +289,31 @@ class SegementAnalyzer:
             print(f"Precision: {row['precison']:.4f}")
             print(f"Recall: {row['recall']:.4f}")
             print(f" F1: {row['f1']:.4f}")
+            
+
+if __name__ == '__main__':
+    
+    import xgboost as xgb
+    import sys
+    sys.path.append('src')
+    from features.feature_engineering import FeatureEngineer
+    
+    test_df = pd.read_csv('data/raw/test_data.csv')
+    
+    fe = FeatureEngineer()
+    fe.load_preprocessor('models/preprocessor.pkl')
+    X_test, Y_test, _ = fe.transform(test_df)
+    
+    model = xgb.Booster()
+    model.load_model('models/model.json')
+    
+    predictions = model.predict(xgb.DMatrix(X_test))
+    
+    test_df['predicted_proba'] = predictions
+    
+    analyzer = SegmentAnalyzer()
+    report = analyzer.generate_segment_report(test_df)
+    
+    if 'subscription_tier' in report['segments']:
+        results_df = pd.DataFrame(report['segments']['subscription_tier']['results'])
+        analyzer.print_segment_summary(results_df, 'Subscription Tier')
