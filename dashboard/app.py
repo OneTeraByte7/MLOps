@@ -396,3 +396,103 @@ elif page == "Drift Analysis":
     
     else:
         st.warning("No drift report available. Run drift detection first!")
+
+
+
+elif page == "Predictions":
+    st.markdown('<div class="main-header">🔮 Prediction Analytics</div>', 
+                unsafe_allow_html=True)
+    
+    predictions_df = load_recent_predictions()
+    
+    # Time range selector
+    time_range = st.selectbox(
+        "Time Range",
+        ["Last Hour", "Last 6 Hours", "Last 24 Hours", "Last Week"]
+    )
+    
+    hours_map = {
+        "Last Hour": 1,
+        "Last 6 Hours": 6,
+        "Last 24 Hours": 24,
+        "Last Week": 168
+    }
+    
+    hours = hours_map[time_range]
+    filtered_df = predictions_df[
+        predictions_df['timestamp'] > datetime.now() - timedelta(hours=hours)
+    ]
+    
+    # Metrics
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric(
+            "Total Predictions",
+            f"{len(filtered_df):,}"
+        )
+    
+    with col2:
+        churn_predictions = filtered_df[filtered_df['prediction'] == 'Yes'].shape[0]
+        st.metric(
+            "Churn Predictions",
+            f"{churn_predictions:,}",
+            delta=f"{churn_predictions/len(filtered_df):.1%}"
+        )
+    
+    with col3:
+        avg_prob = filtered_df['churn_probability'].mean()
+        st.metric(
+            "Avg Churn Probability",
+            f"{avg_prob:.1%}"
+        )
+    
+    # Prediction Trends
+    st.markdown("### 📈 Prediction Trends")
+    
+    trend_df = filtered_df.groupby(
+        filtered_df['timestamp'].dt.floor('H')
+    ).agg({
+        'churn_probability': 'mean',
+        'prediction': lambda x: (x == 'Yes').sum()
+    }).reset_index()
+    
+    fig_trend = make_subplots(specs=[[{"secondary_y": True}]])
+    
+    fig_trend.add_trace(
+        go.Scatter(
+            x=trend_df['timestamp'],
+            y=trend_df['churn_probability'],
+            name='Avg Churn Prob',
+            line=dict(color='#1f77b4')
+        ),
+        secondary_y=False
+    )
+    
+    fig_trend.add_trace(
+        go.Bar(
+            x=trend_df['timestamp'],
+            y=trend_df['prediction'],
+            name='Churn Count',
+            marker_color='#ff7f0e',
+            opacity=0.6
+        ),
+        secondary_y=True
+    )
+    
+    fig_trend.update_xaxes(title_text="Time")
+    fig_trend.update_yaxes(title_text="Churn Probability", secondary_y=False)
+    fig_trend.update_yaxes(title_text="Churn Count", secondary_y=True)
+    fig_trend.update_layout(height=400)
+    
+    st.plotly_chart(fig_trend, use_container_width=True)
+    
+    # Model Version Performance
+    st.markdown("### 🔄 A/B Test Performance")
+    
+    version_perf = filtered_df.groupby('model_version').agg({
+        'churn_probability': ['mean', 'std', 'count'],
+        'prediction': lambda x: (x == 'Yes').sum()
+    }).round(4)
+    
+    st.dataframe(version_perf, use_container_width=True)
