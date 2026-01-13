@@ -539,3 +539,8 @@ curl -X POST "http://localhost:8000/explain" \\
     ...
   }'
         ''', language='bash')
+        
+if auto_refresh:
+    import time
+    time.sleep(refresh_interval)
+    st.rerun()
