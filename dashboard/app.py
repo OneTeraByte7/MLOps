@@ -49,7 +49,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 @st.cache_data(ttl=300)
-def load_mlflow_experiemnts():
+def load_mlflow_experiments():
     try:
         mlflow.set_tracking_uri("http://localhost:5000")
         mlflow.set_experiment("churn-prediction")
@@ -205,3 +205,92 @@ if page == "Overview":
     display_df['timestamp'] = display_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
     
     st.dataframe(display_df, use_container_width=True, hide_index=True)
+    
+
+elif page == "Model Performance":
+    st.markdown('<div class="main-header">🎯 Model Performance Tracking</div>', 
+                unsafe_allow_html=True)
+    
+    # Load MLflow data
+    runs_df = load_mlflow_experiments()
+    
+    if not runs_df.empty:
+        # Performance Metrics Over Time
+        st.markdown("### 📊 Performance Metrics Over Time")
+        
+        metrics_to_plot = ['metrics.test_auc', 'metrics.test_f1', 'metrics.test_precision', 'metrics.test_recall']
+        available_metrics = [m for m in metrics_to_plot if m in runs_df.columns]
+        
+        if available_metrics:
+            fig_metrics = make_subplots(
+                rows=2, cols=2,
+                subplot_titles=['AUC', 'F1 Score', 'Precision', 'Recall']
+            )
+            
+            metric_names = ['test_auc', 'test_f1', 'test_precision', 'test_recall']
+            positions = [(1,1), (1,2), (2,1), (2,2)]
+            
+            for metric, pos, name in zip(available_metrics, positions, metric_names):
+                fig_metrics.add_trace(
+                    go.Scatter(
+                        x=runs_df['start_time'],
+                        y=runs_df[metric],
+                        mode='lines+markers',
+                        name=name.replace('test_', '').upper()
+                    ),
+                    row=pos[0], col=pos[1]
+                )
+            
+            fig_metrics.update_layout(height=500, showlegend=False)
+            st.plotly_chart(fig_metrics, use_container_width=True)
+        
+        # Latest Model Metrics
+        st.markdown("### 🏆 Latest Model Performance")
+        
+        if len(runs_df) > 0:
+            latest_run = runs_df.iloc[0]
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric(
+                    "AUC",
+                    f"{latest_run.get('metrics.test_auc', 0):.4f}"
+                )
+            
+            with col2:
+                st.metric(
+                    "F1 Score",
+                    f"{latest_run.get('metrics.test_f1', 0):.4f}"
+                )
+            
+            with col3:
+                st.metric(
+                    "Precision",
+                    f"{latest_run.get('metrics.test_precision', 0):.4f}"
+                )
+            
+            with col4:
+                st.metric(
+                    "Recall",
+                    f"{latest_run.get('metrics.test_recall', 0):.4f}"
+                )
+        
+        # Model Comparison
+        st.markdown("### 🔄 Model Comparison")
+        
+        comparison_df = runs_df[[
+            'start_time', 
+            'metrics.test_auc', 
+            'metrics.test_f1',
+            'params.max_depth',
+            'params.learning_rate'
+        ]].copy()
+        
+        comparison_df.columns = ['Date', 'AUC', 'F1', 'Max Depth', 'Learning Rate']
+        comparison_df['Date'] = pd.to_datetime(comparison_df['Date']).dt.strftime('%Y-%m-%d %H:%M')
+        
+        st.dataframe(comparison_df.head(10), use_container_width=True, hide_index=True)
+    
+    else:
+        st.warning("No MLflow experiments found. Train a model first!")
