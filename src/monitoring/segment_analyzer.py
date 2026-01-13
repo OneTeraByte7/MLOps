@@ -97,7 +97,7 @@ class SegementAnalyzer:
         return results_df
     
     
-    def detech_performance_gaps(self, segment_results: pd.DataFrame,
+    def detect_performance_gaps(self, segment_results: pd.DataFrame,
                                 threshold: float = 0.1) -> List[Dict]:
         
         gaps = []
@@ -134,7 +134,7 @@ class SegementAnalyzer:
     
 
     
-    def calculate_firness_metrics(self, df: pd.DataFrame,
+    def calculate_fairness_metrics(self, df: pd.DataFrame,
                                   protected_attribute: str,
                                   Y_true_col: str = 'churned',
                                   Y_pred_col: str = 'predicted_proba') -> Dict:
@@ -162,7 +162,7 @@ class SegementAnalyzer:
                 tpr = None
                 
             if (1 - Y_true).sum() > 0:
-                fpr = (Y_pred[Y_true == 0] == 1)/mean()
+                fpr = (Y_pred[Y_true == 0] == 1).mean()
             else:
                 fpr = None
             
