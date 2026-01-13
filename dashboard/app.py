@@ -294,3 +294,105 @@ elif page == "Model Performance":
     
     else:
         st.warning("No MLflow experiments found. Train a model first!")
+        
+
+elif page == "Drift Analysis":
+    st.markdown('<div class="main-header">🔍 Data & Model Drift Analysis</div>', 
+                unsafe_allow_html=True)
+    
+    drift_report = load_drift_report()
+    
+    if drift_report:
+        # Overall Status
+        status = drift_report['drift_status']['overall_status']
+        
+        if status == 'critical':
+            st.error("🚨 CRITICAL: Significant drift detected!")
+        elif status == 'warning':
+            st.warning("⚠️ WARNING: Moderate drift detected")
+        elif status == 'monitoring':
+            st.info("ℹ️ MONITORING: Minor drift detected")
+        else:
+            st.success("✅ HEALTHY: No significant drift")
+        
+        # Drift Summary
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric(
+                "Features with Drift",
+                drift_report['drifted_features_count']
+            )
+        
+        with col2:
+            if 'label_drift' in drift_report:
+                churn_change = drift_report['label_drift']['churn_rate_change']
+                st.metric(
+                    "Churn Rate Change",
+                    f"{churn_change:+.1%}"
+                )
+        
+        with col3:
+            if 'model_performance' in drift_report:
+                auc = drift_report['model_performance']['auc']
+                st.metric(
+                    "Current AUC",
+                    f"{auc:.4f}"
+                )
+        
+        # Feature Drift Details
+        st.markdown("### 📊 Feature Drift Details")
+        
+        feature_drift = drift_report['feature_drift']
+        
+        drift_data = []
+        for feature, stats in feature_drift.items():
+            drift_data.append({
+                'Feature': feature,
+                'PSI': stats['psi'],
+                'Drift Detected': '✓' if stats['drift_detected'] else '✗',
+                'Mean Shift': stats['mean_shift'],
+                'Current Mean': stats['current_mean'],
+                'Reference Mean': stats['reference_mean']
+            })
+        
+        drift_df = pd.DataFrame(drift_data).sort_values('PSI', ascending=False)
+        
+        # PSI Distribution
+        fig_psi = px.bar(
+            drift_df,
+            x='Feature',
+            y='PSI',
+            color='Drift Detected',
+            title='Population Stability Index by Feature',
+            color_discrete_map={'✓': '#f44336', '✗': '#4caf50'}
+        )
+        fig_psi.add_hline(y=0.1, line_dash="dash", line_color="orange", 
+                         annotation_text="Moderate Threshold")
+        fig_psi.add_hline(y=0.2, line_dash="dash", line_color="red", 
+                         annotation_text="High Threshold")
+        fig_psi.update_layout(height=400)
+        st.plotly_chart(fig_psi, use_container_width=True)
+        
+        # Drift Table
+        st.dataframe(drift_df, use_container_width=True, hide_index=True)
+        
+        # Alerts & Recommendations
+        if drift_report['drift_status']['alerts']:
+            st.markdown("### 🚨 Alerts")
+            for alert in drift_report['drift_status']['alerts']:
+                severity = alert['severity']
+                if severity == 'critical':
+                    st.error(f"**{severity.upper()}**: {alert['message']}")
+                elif severity == 'high':
+                    st.warning(f"**{severity.upper()}**: {alert['message']}")
+                else:
+                    st.info(f"**{severity.upper()}**: {alert['message']}")
+        
+        if drift_report['drift_status']['recommendations']:
+            st.markdown("### 💡 Recommendations")
+            for i, rec in enumerate(drift_report['drift_status']['recommendations'], 1):
+                st.markdown(f"{i}. {rec}")
+    
+    else:
+        st.warning("No drift report available. Run drift detection first!")
