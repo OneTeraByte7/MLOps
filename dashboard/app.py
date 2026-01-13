@@ -85,3 +85,123 @@ def load_recent_predictions():
     
     return pd.DataFrame(data)
 
+st.sidebar.markdown("## MLOps Dashboard")
+st.sidebar.markdown("###Navigation")
+
+page = st.sidebar.radio(
+    "Select Page",
+    ["Overview", "Model Performnace", "Drift Analysis", 'Predictions', "Explainability"]
+)
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("###Settings")
+auto_refresh = st.sidebar.checkbox("Auto Refresh", values = False)
+
+if auto_refresh:
+    refresh_interval = st.sidebar.slider("Refresh Interval (seconds)", 5, 60, 30)
+    
+st.sidebar.markdown("---")
+st.sidebar.markdown("###System Staus")
+st.sidebar.markdown("@API: Online")
+st.sidebar.markdown("@MLflow: COnnected")
+st.sidebar.markdown(f"Last Updated: {datetime.now().strftime('%H:%M:%S')}")
+
+
+if page == "Overview":
+    st.markdown('<div class="main-header">🎯 Churn Prediction System Overview</div>', 
+                unsafe_allow_html=True)
+    
+    # Key Metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    predictions_df = load_recent_predictions()
+    
+    with col1:
+        st.metric(
+            label="Total Predictions (24h)",
+            value=f"{len(predictions_df[predictions_df['timestamp'] > datetime.now() - timedelta(hours=24)]):,}",
+            delta="+12%"
+        )
+    
+    with col2:
+        churn_rate = predictions_df[predictions_df['prediction'] == 'Yes'].shape[0] / len(predictions_df)
+        st.metric(
+            label="Predicted Churn Rate",
+            value=f"{churn_rate:.1%}",
+            delta="-2.3%"
+        )
+    
+    with col3:
+        high_risk = predictions_df[predictions_df['risk_level'] == 'High'].shape[0]
+        st.metric(
+            label="High Risk Customers",
+            value=f"{high_risk:,}",
+            delta="+5"
+        )
+    
+    with col4:
+        avg_confidence = predictions_df['churn_probability'].mean()
+        st.metric(
+            label="Avg Confidence",
+            value=f"{avg_confidence:.2%}",
+            delta="+1.2%"
+        )
+    
+    # Prediction Volume Over Time
+    st.markdown("### 📈 Prediction Volume")
+    
+    hourly_predictions = predictions_df.groupby(
+        predictions_df['timestamp'].dt.floor('H')
+    ).size().reset_index(name='count')
+    
+    fig_volume = px.line(
+        hourly_predictions,
+        x='timestamp',
+        y='count',
+        title='Predictions per Hour',
+        labels={'count': 'Number of Predictions', 'timestamp': 'Time'}
+    )
+    fig_volume.update_layout(height=300)
+    st.plotly_chart(fig_volume, use_container_width=True)
+    
+    # Risk Distribution
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 🎯 Risk Level Distribution")
+        risk_counts = predictions_df['risk_level'].value_counts()
+        
+        fig_risk = go.Figure(data=[go.Pie(
+            labels=risk_counts.index,
+            values=risk_counts.values,
+            hole=0.4,
+            marker_colors=['#f44336', '#ff9800', '#4caf50']
+        )])
+        fig_risk.update_layout(height=300)
+        st.plotly_chart(fig_risk, use_container_width=True)
+    
+    with col2:
+        st.markdown("### 📊 Churn Probability Distribution")
+        
+        fig_dist = px.histogram(
+            predictions_df,
+            x='churn_probability',
+            nbins=50,
+            title='Distribution of Churn Probabilities',
+            labels={'churn_probability': 'Churn Probability'}
+        )
+        fig_dist.update_layout(height=300)
+        st.plotly_chart(fig_dist, use_container_width=True)
+    
+    # Recent High-Risk Customers
+    st.markdown("### ⚠️ Recent High-Risk Customers")
+    
+    high_risk_df = predictions_df[
+        predictions_df['risk_level'] == 'High'
+    ].sort_values('timestamp', ascending=False).head(10)
+    
+    display_df = high_risk_df[['timestamp', 'customer_id', 'churn_probability', 'model_version']].copy()
+    display_df['churn_probability'] = display_df['churn_probability'].apply(lambda x: f"{x:.1%}")
+    display_df['timestamp'] = display_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
+    
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
