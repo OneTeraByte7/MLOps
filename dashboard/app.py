@@ -496,3 +496,46 @@ elif page == "Predictions":
     }).round(4)
     
     st.dataframe(version_perf, use_container_width=True)
+    
+
+
+elif page == "Explainability":
+    st.markdown('<div class="main-header">🔍 Model Explainability</div>', 
+                unsafe_allow_html=True)
+    
+    # Check for explainability reports
+    explainability_dir = 'monitoring/reports/explainability'
+    
+    if os.path.exists(f"{explainability_dir}/global_importance.png"):
+        st.markdown("### 🎯 Global Feature Importance")
+        st.image(f"{explainability_dir}/global_importance.png", use_container_width=True)
+    
+    if os.path.exists(f"{explainability_dir}/feature_importance.csv"):
+        st.markdown("### 📊 Feature Importance Rankings")
+        importance_df = pd.read_csv(f"{explainability_dir}/feature_importance.csv")
+        
+        fig_importance = px.bar(
+            importance_df.head(15),
+            x='importance',
+            y='feature',
+            orientation='h',
+            title='Top 15 Most Important Features'
+        )
+        fig_importance.update_layout(height=500)
+        st.plotly_chart(fig_importance, use_container_width=True)
+    
+    # Customer Explanation Tool
+    st.markdown("### 🔬 Individual Customer Explanation")
+    st.info("Use the `/explain` API endpoint to get detailed explanations for specific customers")
+    
+    with st.expander("Example API Call"):
+        st.code('''
+curl -X POST "http://localhost:8000/explain" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "customer_id": "CUST_001",
+    "account_age_days": 365,
+    "subscription_tier": "Professional",
+    ...
+  }'
+        ''', language='bash')
