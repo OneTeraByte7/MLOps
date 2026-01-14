@@ -212,11 +212,12 @@ def preprocess_input(customer: CustomerFeatures):
     return X_transformed
 
 @app.post("/predict", response_model=PredictionResponse)
-@prediction_latency.time()
 async def predict(customer: CustomerFeatures, explain: bool = False):
     """Make churn prediction for a single customer"""
     
     try:
+        # Start timing
+        start_time = datetime.now()
         # Select model (A/B testing)
         model, model_version = select_model()
         
@@ -244,7 +245,7 @@ async def predict(customer: CustomerFeatures, explain: bool = False):
         # Generate explanation if requested
         explanation_text = None
         if explain and explainer is not None:
-            explanation = explainer.explain_prediction(X, customer.customer_id)
+            explanation = explainer.explain_predictions(X, customer.customer_id)
             explanation_text = explanation['explanation_text']
         
         # Log metrics
@@ -252,6 +253,10 @@ async def predict(customer: CustomerFeatures, explain: bool = False):
             model_version=model_version, 
             prediction=churn_pred
         ).inc()
+        
+        # Log latency
+        latency = (datetime.now() - start_time).total_seconds()
+        prediction_latency.observe(latency)
         
         return PredictionResponse(
             customer_id=customer.customer_id,
@@ -315,7 +320,7 @@ async def explain_prediction(customer: CustomerFeatures):
         X = preprocess_input(customer)
         
         # Generate explanation
-        explanation = explainer.explain_prediction(X, customer.customer_id)
+        explanation = explainer.explain_predictions(X, customer.customer_id)
         
         return {
             "customer_id": explanation['customer_id'],
