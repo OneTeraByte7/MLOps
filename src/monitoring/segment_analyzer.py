@@ -23,7 +23,15 @@ class SegmentAnalyzer:
         df = df.copy()
         
         if 'account_age_days' in df.columns:
-            df['account_age_bucket'] = pd.cut(
+            df['account_age_bucket'] = pd.qcut(
+                df['account_age_days'],
+                q = 4,
+                labels = ['New', 'Growing', 'Mature', 'Veteran'],
+                duplicates = 'drop'
+            )
+            
+        if 'monthly_revenue' in df.columns:
+            df['revenue_bucket'] = pd.qcut(
                 df['monthly_revenue'],
                 q = 4,
                 labels = ['Low', 'Medium-Low', 'Medium-High', 'High'],
@@ -34,7 +42,7 @@ class SegmentAnalyzer:
             df['team_size_bucket'] = pd.cut(
                 df['team_size'],
                 bins = [0, 5, 20, 50, np.inf],
-                labels = ['Small (1-5)', 'Medium (6-20)', 'Large (21-50)', 'Enterprose (50-+)']
+                labels = ['Small (1-5)', 'Medium (6-20)', 'Large (21-50)', 'Enterprise (50+)']
             )
             
         return df
@@ -285,8 +293,8 @@ class SegmentAnalyzer:
             print(f"Churn Rate: {row['churn_rate']:.1%}")
             
             if row['auc'] is not None:
-                print(f" AUC: {row['auc']:4f}")
-            print(f"Precision: {row['precison']:.4f}")
+                print(f" AUC: {row['auc']:.4f}")
+            print(f"Precision: {row['precision']:.4f}")
             print(f"Recall: {row['recall']:.4f}")
             print(f" F1: {row['f1']:.4f}")
             
@@ -316,4 +324,4 @@ if __name__ == '__main__':
     
     if 'subscription_tier' in report['segments']:
         results_df = pd.DataFrame(report['segments']['subscription_tier']['results'])
-        analyzer.print_segment_summary(results_df, 'Subscription Tier')
+        analyzer.print_segment_report(results_df, 'Subscription Tier')
