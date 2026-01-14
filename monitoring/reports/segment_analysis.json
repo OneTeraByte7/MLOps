@@ -1,0 +1,231 @@
+{
+  "timestamp": "2026-01-14T12:11:15.500057",
+  "total_samples": 2000,
+  "segments": {
+    "subscription_tier": {
+      "results": [
+        {
+          "sample_size": 1034,
+          "churn_rate": 0.07059961315280464,
+          "predicted_churn_rate": 0.0,
+          "auc": 0.5520932818268641,
+          "accuracy": 0.9294003868471954,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "segment": "Starter"
+        },
+        {
+          "sample_size": 674,
+          "churn_rate": 0.05341246290801187,
+          "predicted_churn_rate": 0.0,
+          "auc": 0.5244905956112853,
+          "accuracy": 0.9465875370919882,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "segment": "Professional"
+        },
+        {
+          "sample_size": 292,
+          "churn_rate": 0.07191780821917808,
+          "predicted_churn_rate": 0.0,
+          "auc": 0.6331049024775962,
+          "accuracy": 0.928082191780822,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "segment": "Enterprise"
+        }
+      ],
+      "performance_gaps": [
+        {
+          "metric": "auc",
+          "difference": 0.1086143068663109,
+          "max_segment": "Enterprise",
+          "max_value": 0.6331049024775962,
+          "min_segment": "Professional",
+          "min_value": 0.5244905956112853,
+          "severity": "medium"
+        }
+      ]
+    },
+    "account_age_bucket": {
+      "results": [
+        {
+          "sample_size": 504,
+          "churn_rate": 0.07341269841269842,
+          "predicted_churn_rate": 0.0,
+          "auc": 0.6135193008854678,
+          "accuracy": 0.9265873015873016,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "segment": "New"
+        },
+        {
+          "sample_size": 500,
+          "churn_rate": 0.07,
+          "predicted_churn_rate": 0.0,
+          "auc": 0.5671274961597542,
+          "accuracy": 0.93,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "segment": "Mature"
+        },
+        {
+          "sample_size": 499,
+          "churn_rate": 0.05811623246492986,
+          "predicted_churn_rate": 0.0,
+          "auc": 0.49519442406456343,
+          "accuracy": 0.9418837675350702,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "segment": "Veteran"
+        },
+        {
+          "sample_size": 497,
+          "churn_rate": 0.05835010060362173,
+          "predicted_churn_rate": 0.0,
+          "auc": 0.5712496315944592,
+          "accuracy": 0.9416498993963782,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "segment": "Growing"
+        }
+      ],
+      "performance_gaps": [
+        {
+          "metric": "auc",
+          "difference": 0.11832487682090437,
+          "max_segment": "New",
+          "max_value": 0.6135193008854678,
+          "min_segment": "Veteran",
+          "min_value": 0.49519442406456343,
+          "severity": "medium"
+        }
+      ]
+    },
+    "revenue_bucket": {
+      "results": [
+        {
+          "sample_size": 500,
+          "churn_rate": 0.072,
+          "predicted_churn_rate": 0.0,
+          "auc": 0.5728568007662835,
+          "accuracy": 0.928,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "segment": "Medium-Low"
+        },
+        {
+          "sample_size": 500,
+          "churn_rate": 0.066,
+          "predicted_churn_rate": 0.0,
+          "auc": 0.5325416909999352,
+          "accuracy": 0.934,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "segment": "Medium-High"
+        },
+        {
+          "sample_size": 500,
+          "churn_rate": 0.07,
+          "predicted_churn_rate": 0.0,
+          "auc": 0.544147465437788,
+          "accuracy": 0.93,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "segment": "Low"
+        },
+        {
+          "sample_size": 500,
+          "churn_rate": 0.052,
+          "predicted_churn_rate": 0.0,
+          "auc": 0.5897435897435898,
+          "accuracy": 0.948,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "segment": "High"
+        }
+      ],
+      "performance_gaps": []
+    },
+    "team_size_bucket": {
+      "results": [
+        {
+          "sample_size": 1107,
+          "churn_rate": 0.06684733514001806,
+          "predicted_churn_rate": 0.0,
+          "auc": 0.5587831296931007,
+          "accuracy": 0.9331526648599819,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "segment": "Small (1-5)"
+        },
+        {
+          "sample_size": 637,
+          "churn_rate": 0.0706436420722135,
+          "predicted_churn_rate": 0.0,
+          "auc": 0.570457957957958,
+          "accuracy": 0.9293563579277865,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "segment": "Medium (6-20)"
+        },
+        {
+          "sample_size": 108,
+          "churn_rate": 0.018518518518518517,
+          "predicted_churn_rate": 0.0,
+          "auc": 0.6650943396226415,
+          "accuracy": 0.9814814814814815,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "segment": "Large (21-50)"
+        }
+      ],
+      "performance_gaps": [
+        {
+          "metric": "auc",
+          "difference": 0.1063112099295408,
+          "max_segment": "Large (21-50)",
+          "max_value": 0.6650943396226415,
+          "min_segment": "Small (1-5)",
+          "min_value": 0.5587831296931007,
+          "severity": "medium"
+        }
+      ]
+    }
+  },
+  "fairness_analysis": {
+    "attribute": "is_enterprise",
+    "group_metrics": {
+      "0": {
+        "positive_rate": 0.0,
+        "true_positive_rate": 0.0,
+        "false_positive_rate": 0.0,
+        "sample_size": 1708
+      },
+      "1": {
+        "positive_rate": 0.0,
+        "true_positive_rate": 0.0,
+        "false_positive_rate": 0.0,
+        "sample_size": 292
+      }
+    },
+    "demographic_parity_diff": 0.0,
+    "equal_opportunity_diff": 0.0,
+    "demographic_parity_pass": "True",
+    "equal_opportunity_pass": true
+  }
+}
