@@ -64,8 +64,8 @@ class ChurnExplainer:
             
         return explanations
 
-    def _get_feature_contribution(self, feature_values: np.ndarray,
-                                  shap_values: np.ndarray) -> List[Dict]:
+    def _get_feature_contributions(self, feature_values: np.ndarray,
+                                   shap_values: np.ndarray) -> List[Dict]:
         
         contributions = []
         for i, (feat_name, feat_val, shap_val) in enumerate(
@@ -118,7 +118,7 @@ class ChurnExplainer:
             explanation += f"{i}. {feature} (value: {driver['value']:.2f})\n"
             explanation += f"{direction.capitalize()} churn risk by {impact_pct:.1f}%\n\n"
         
-        explantion += self._generate_recommendations(prediction, top_drivers)
+        explanation += self._generate_recommendations(prediction, top_drivers)
         
         return explanation
     
