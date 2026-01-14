@@ -1,0 +1,156 @@
+{
+  "timestamp": "2026-01-14T12:42:33.755762",
+  "reference_period": "training_data",
+  "current_period": "last_7_days",
+  "reference_samples": 8000,
+  "current_samples": 2000,
+  "feature_drift": {
+    "account_age_days": {
+      "psi": 0.0068617316748213536,
+      "ks_statistic": 0.0195,
+      "ks_p_value": 0.5729312306982475,
+      "mean_shift": 0.02987309627837824,
+      "drift_detected": false,
+      "reference_mean": 358.544625,
+      "current_mean": 348.0405,
+      "reference_std": 351.6249170193901,
+      "current_std": 335.94884383278696
+    },
+    "monthly_revenue": {
+      "psi": 0.007063123709886855,
+      "ks_statistic": 0.02175,
+      "ks_p_value": 0.43184881148671866,
+      "mean_shift": 0.019046278197374474,
+      "drift_detected": false,
+      "reference_mean": 170.02834171090333,
+      "current_mean": 166.79442242516384,
+      "reference_std": 169.79271499790337,
+      "current_std": 168.92263991128814
+    },
+    "logins_per_month": {
+      "psi": 0.00393189942828164,
+      "ks_statistic": 0.009625,
+      "ks_p_value": 0.998258310484825,
+      "mean_shift": 2.8143062959834745e-05,
+      "drift_detected": false,
+      "reference_mean": 19.989875,
+      "current_mean": 19.99,
+      "reference_std": 4.441591882611623,
+      "current_std": 4.474025978269138
+    },
+    "feature_usage_depth": {
+      "psi": 0.0037988097252646966,
+      "ks_statistic": 0.019125,
+      "ks_p_value": 0.597877478101458,
+      "mean_shift": 0.030418953491513655,
+      "drift_detected": false,
+      "reference_mean": 0.28658255529302257,
+      "current_mean": 0.29141267199320303,
+      "reference_std": 0.1587864190819742,
+      "current_std": 0.16129748945636088
+    },
+    "support_tickets": {
+      "psi": 0.0014958509468923483,
+      "ks_statistic": 0.015125,
+      "ks_p_value": 0.8542810035751878,
+      "mean_shift": 0.035124310770839384,
+      "drift_detected": false,
+      "reference_mean": 1.9815,
+      "current_mean": 2.0305,
+      "reference_std": 1.3950451673251871,
+      "current_std": 1.421119115264405
+    },
+    "avg_ticket_resolution_days": {
+      "psi": 0.005174532181144817,
+      "ks_statistic": 0.028,
+      "ks_p_value": 0.16083703707308766,
+      "mean_shift": 0.043421303271722916,
+      "drift_detected": false,
+      "reference_mean": 4.004489617857369,
+      "current_mean": 4.125612859905957,
+      "reference_std": 2.789488866473629,
+      "current_std": 2.931663624015054
+    },
+    "nps_score": {
+      "psi": 0.004473026165032149,
+      "ks_statistic": 0.018375,
+      "ks_p_value": 0.6483161894001435,
+      "mean_shift": 0.017911451364594204,
+      "drift_detected": false,
+      "reference_mean": 6.196375,
+      "current_mean": 6.2465,
+      "reference_std": 2.798489021235432,
+      "current_std": 2.7796764291056006
+    },
+    "payment_delays": {
+      "psi": 0.00033940957968455225,
+      "ks_statistic": 0.011625,
+      "ks_p_value": 0.9810739207100523,
+      "mean_shift": 0.028327687612389654,
+      "drift_detected": false,
+      "reference_mean": 0.492625,
+      "current_mean": 0.5125,
+      "reference_std": 0.701610391540554,
+      "current_std": 0.7156114867020721
+    },
+    "contract_length_months": {
+      "psi": 0.0010669501808341303,
+      "ks_statistic": 0.0105,
+      "ks_p_value": 0.994103412619176,
+      "mean_shift": 0.012708714814285833,
+      "drift_detected": false,
+      "reference_mean": 7.333,
+      "current_mean": 7.4225,
+      "reference_std": 7.04241155038923,
+      "current_std": 7.206938582495757
+    },
+    "team_size": {
+      "psi": 0.0050062693119210105,
+      "ks_statistic": 0.0185,
+      "ks_p_value": 0.6398830238678456,
+      "mean_shift": 0.04500835504135573,
+      "drift_detected": false,
+      "reference_mean": 6.89875,
+      "current_mean": 6.4445,
+      "reference_std": 10.092570581131294,
+      "current_std": 7.942509772152651
+    },
+    "api_calls_per_month": {
+      "psi": 0.002446074428002362,
+      "ks_statistic": 0.010375,
+      "ks_p_value": 0.9949488503265719,
+      "mean_shift": 0.00044052280161423777,
+      "drift_detected": false,
+      "reference_mean": 2707.103875,
+      "current_mean": 2711.0695,
+      "reference_std": 9002.087940666677,
+      "current_std": 8835.946179505245
+    },
+    "days_since_last_login": {
+      "psi": 0.004879708958889615,
+      "ks_statistic": 0.021125,
+      "ks_p_value": 0.4691820458678814,
+      "mean_shift": 0.035502417193428816,
+      "drift_detected": false,
+      "reference_mean": 9.673375,
+      "current_mean": 10.0375,
+      "reference_std": 10.25634389941893,
+      "current_std": 10.442969958818248
+    }
+  },
+  "drifted_features_count": 0,
+  "drifted_features": [],
+  "label_drift": {
+    "reference_churn_rate": 0.0645,
+    "current_churn_rate": 0.065,
+    "churn_rate_change": 0.0005000000000000004,
+    "chi2_statistic": 0.008286411528055718,
+    "p_value": 0.9274689689376234,
+    "drift_detected": false
+  },
+  "drift_status": {
+    "overall_status": "healthy",
+    "alerts": [],
+    "recommendations": []
+  }
+}
