@@ -76,10 +76,10 @@ def load_recent_predictions():
     
     data = {
         'timestamp': dates,
-        'customer_id': [f'CUST_{i:06d}' for i in np.ranodom.randit(0, 10000, 1000)],
+        'customer_id': [f'CUST_{i:06d}' for i in np.random.randint(0, 10000, 1000)],
         'churn_probability': np.random.beta(2, 5, 1000),
         'prediction': np.random.choice(['Yes', 'No'], 1000, p = [0.25, 0.75]),
-        'risk_level': np.random.choice(['High', 'Mdedium', 'Low'], 1000, p = [0.15, 0.35, 0.50]),
+        'risk_level': np.random.choice(['High', 'Medium', 'Low'], 1000, p = [0.15, 0.35, 0.50]),
         'model_version': np.random.choice(['v1.0.0', 'v1.1.0'], 1000, p = [0.6, 0.4])
     }
     
@@ -95,7 +95,7 @@ page = st.sidebar.radio(
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("###Settings")
-auto_refresh = st.sidebar.checkbox("Auto Refresh", values = False)
+auto_refresh = st.sidebar.checkbox("Auto Refresh", value = False)
 
 if auto_refresh:
     refresh_interval = st.sidebar.slider("Refresh Interval (seconds)", 5, 60, 30)
