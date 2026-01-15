@@ -1,9 +1,10 @@
-# 🚀 MLOps Churn Prediction Pipeline
+# MLOps Churn Prediction Pipeline
 
 ![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![MLflow](https://img.shields.io/badge/MLflow-2.8.0-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-green)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Status](https://img.shields.io/badge/Status-completed-green)
 
 **A production-ready, end-to-end MLOps pipeline for customer churn prediction in SaaS businesses.**
 
