@@ -169,3 +169,41 @@ class FeastFeatureManager:
         
         print(f"Statistics for {feature_view_name} (implement based on your needs)")
         return pd.DataFrame()
+    
+
+if __name__ == "__main__":
+    fs_manager = FeastFeatureManager()
+    
+    print("\n Example 1: Materializing Features")
+    print("=" * 40)
+    
+    train_df = pd.read_csv("data/raw/train.csv")
+    train_df['event_timestamp'] = datetime.now()
+    
+    print("\n Example 2: Onlince Feature Retrieval")
+    print("-" * 40)
+    
+    customer_ids = ["CUST_000001", "CUST_000002", "CUST_000003"]
+    
+    print("\n Example 3: Historical Feature Retrieval (point-in-Time Correct)")
+    print("-" * 40)
+    
+    entity_df = pd.DataFrame({
+        'customer_id': ["CUST_000001", "CUST_000002"],
+        'event_timestamp': [
+            datetime.now() - timedelta(days = 30),
+            datetime.now() - timedelta(days = 30)
+        ]
+    })
+    
+    print("\n" + "=" * 60)
+    print("Feature Store Benefits: ")
+    print("=" * 60)
+    print("Point-in-Time correct features (no data leakage)")
+    print("Low Latency online serving")
+    print("Feature reuse across models")
+    print("Consistent train/serve")
+    print("Feature versioning")
+    print("Feature discovery")
+    print("=" * 60)
+    
