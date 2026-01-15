@@ -90,7 +90,7 @@ st.sidebar.markdown("###Navigation")
 
 page = st.sidebar.radio(
     "Select Page",
-    ["Overview", "Model Performnace", "Drift Analysis", 'Predictions', "Explainability"]
+    ["Overview", "Model Performance", "Drift Analysis", 'Predictions', "Explainability"]
 )
 
 st.sidebar.markdown("---")
@@ -279,18 +279,30 @@ elif page == "Model Performance":
         # Model Comparison
         st.markdown("### 🔄 Model Comparison")
         
-        comparison_df = runs_df[[
-            'start_time', 
-            'metrics.test_auc', 
-            'metrics.test_f1',
-            'params.max_depth',
-            'params.learning_rate'
-        ]].copy()
+        # Select only available columns
+        comparison_cols = ['start_time', 'metrics.test_auc', 'metrics.test_f1', 
+                          'params.max_depth', 'params.learning_rate']
+        available_cols = [col for col in comparison_cols if col in runs_df.columns]
         
-        comparison_df.columns = ['Date', 'AUC', 'F1', 'Max Depth', 'Learning Rate']
-        comparison_df['Date'] = pd.to_datetime(comparison_df['Date']).dt.strftime('%Y-%m-%d %H:%M')
-        
-        st.dataframe(comparison_df.head(10), use_container_width=True, hide_index=True)
+        if available_cols:
+            comparison_df = runs_df[available_cols].copy()
+            
+            # Rename columns dynamically
+            col_rename = {
+                'start_time': 'Date',
+                'metrics.test_auc': 'AUC',
+                'metrics.test_f1': 'F1',
+                'params.max_depth': 'Max Depth',
+                'params.learning_rate': 'Learning Rate'
+            }
+            comparison_df.columns = [col_rename.get(col, col) for col in comparison_df.columns]
+            
+            if 'Date' in comparison_df.columns:
+                comparison_df['Date'] = pd.to_datetime(comparison_df['Date']).dt.strftime('%Y-%m-%d %H:%M')
+            
+            st.dataframe(comparison_df.head(10), use_container_width=True, hide_index=True)
+        else:
+            st.info("No model comparison data available.")
     
     else:
         st.warning("No MLflow experiments found. Train a model first!")
