@@ -74,3 +74,66 @@ class FeastFeatureManager:
             
         except Exception as e:
             print(f"Materialization error: {e}")
+            
+            
+    def get_online_features(self, customer_ids: list) -> pd.DataFrame:
+        
+        if self.store is None:
+            raise RuntimeError("Feature store not initialized")
+        
+        features = [
+            "customer_engagement: logins_per_month",
+            "customer_engagement: feature_usage_depth",
+            "customer_engagement: api_calls_per_month",
+            "customer_engagement: days_since_last_login",
+            "customer_support: support_tickest",
+            "customer_support: avg_ticket_resolution_days",
+            "customer_support: nps_score",
+            "customer_billing: monthly_revenue",
+            "customer_billing: payment_delays",
+            "customer_billing: contract_length_months",
+            "customer_profile: account_age_days",
+            "customer_profile: subscription_tier",
+            "customer_profile: team_size",
+        ]
+        
+        entity_df = pd.DataFrame({
+            "customer_id": customer_ids
+        })
+        
+        feature_vector = self.store.get_onlince_features(
+            features = features,
+            entity_rows = entity_df.to_dict('records')
+        )
+        
+        features_df = pd.DataFrame(feature_vector.to_dict())
+        
+        return features_df
+    
+    def get_historical_features(self, entity_df: pd.DataFrame) -> pd.DataFrame:
+        
+        if self.store is None:
+            raise RuntimeError("Feature store not initialized")
+        
+        features = [
+            "customer_engagement: logins_per_month",
+            "customer_engagement: feature_usage_depth",
+            "customer_engagement: api_calls_per_month",
+            "customer_engagement: days_since_last_login",
+            "customer_support: support_tickets",
+            "customer_support: avg_ticket_resolution_days",
+            "customer_support: nps_score",
+            "customer_billing: monthly_revenue",
+            "customer_billing: payment_delays",
+            "customer_billing: contract_length_months",
+            "customer_profile: account_age_days",
+            "customer_profile: subscription_tier",
+            "customer_profile: team_size",
+        ]
+        
+        training_df = self.store.get_historical_features(
+            entity_df = entity_df,
+            features = features
+        ).to_df()
+        
+        return training_df
