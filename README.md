@@ -1,4 +1,5 @@
 # MLOps Churn Prediction Pipeline
+<img width="1024" height="338" alt="Gemini_Generated_Image_hs3nijhs3nijhs3n" src="https://github.com/user-attachments/assets/36164c6e-b91b-4066-baf6-971e71f4fd79" />
 
 ![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![MLflow](https://img.shields.io/badge/MLflow-2.8.0-blue)
