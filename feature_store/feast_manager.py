@@ -137,3 +137,35 @@ class FeastFeatureManager:
         ).to_df()
         
         return training_df
+    
+    def validate_features(self):
+        if self.store is None:
+            raise RuntimeError("Features store not initialized")
+        
+        print("\n" + "=" * 60)
+        print("Validating features")
+        print("=" * 60)
+        
+        feature_views = self.store.list_feature_views()
+        
+        print(f"\n Feature Views ({len(feature_views)}):")
+        for fv in feature_views:
+            print(f"{fv.name}")
+            print(f"Features: {[f.name for f in fv.schema]}")
+            print(f" TTL: {fv.ttl}")
+            
+        entities = self.store.list_entities()
+        print(f"\n Entities ({len(entities)}):")
+        for entity in entities:
+            print(f" {entity.name}")
+            
+        print("\n" + "=" * 60)
+        print("Feature Store Validation Complete")
+        print("=" * 60)
+        
+    def get_feature_statistics(self, feature_view_name: str) -> pd.DataFrame:
+        if self.store is None:
+            raise RuntimeError("Feature store not initialized")
+        
+        print(f"Statistics for {feature_view_name} (implement based on your needs)")
+        return pd.DataFrame()
