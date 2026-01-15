@@ -36,3 +36,41 @@ class FeastFeatureManager:
         print("Created feature_store.yaml")
         print("Feature store initialized")
         print(f"Location: {self.repo_path}")
+        
+    
+    def materialize_features(self, df: pd.DataFrame,
+                             start_date: datetime = None,
+                             end_date: datetime = None):
+        
+        if self.store is None:
+            raise RuntimeError("feature store not initialized")
+        
+        if start_date is None:
+            start_date = datetime.now() - timedelta(days = 7)
+            
+        if end_date is None:
+            end_date = datetime.now()
+            
+        print("\n" + "=" * 60)
+        print("Materializing features to features store")
+        print("=" * 60)
+        
+        if 'event_timestamp' not in df.columns:
+            df['event_timestamp'] = datetime.now()
+            
+        output_path = f"{self.repo_path}/data/customer_stats.parquet"
+        df.to_parquet(output_path, index = False)
+        
+        print(f"Saved batch features to {output_path}")
+        print(f"Records: {len(df)}")
+        
+        try:
+            self.store.materialize(
+                start_date = start_date,
+                end_date = end_date
+            )
+            
+            print("Features materialized to online store")
+            
+        except Exception as e:
+            print(f"Materialization error: {e}")
