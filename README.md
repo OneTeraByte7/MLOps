@@ -560,54 +560,21 @@ Edit `config/config.yaml` to customize:
 ## 📝 Best Practices Implemented
 
 ✅ **Separation of Concerns**: Clear boundaries between data, models, API, monitoring
+
 ✅ **Configuration Management**: Centralized YAML configuration
+
 ✅ **Version Control**: DVC for data, Git for code, MLflow for models
+
 ✅ **Automated Testing**: Unit tests, integration tests, smoke tests
+
 ✅ **Monitoring**: Prometheus metrics, drift detection, alerting
+
 ✅ **Documentation**: Inline comments, API docs, comprehensive README
+
 ✅ **Reproducibility**: Fixed seeds, versioned dependencies
+
 ✅ **Scalability**: Containerized, stateless API, horizontal scaling ready
 
 ---
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
-
----
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
----
-
-## 🙋 FAQ
-
-**Q: How often should I retrain the model?**
-A: It depends on drift detection results. Weekly is a good starting point for SaaS churn.
-
-**Q: Can I use my own data?**
-A: Yes! Replace the data generator with your data loading logic, ensuring the same schema.
-
-**Q: How do I add new features?**
-A: Update `feature_engineering.py` and `config.yaml`, then retrain.
-
-**Q: What if retraining degrades performance?**
-A: The pipeline automatically validates new models and rejects worse performers.
-
----
-
-## 📬 Contact
-
-- **Email**: ml-team@example.com
-- **Issues**: GitHub Issues
-- **Slack**: #mlops-churn
-
----
-
-**Built with ❤️ for production ML**
+**Built by Soham with ❤️ for production ML**
