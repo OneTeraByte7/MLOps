@@ -225,3 +225,88 @@ class ABTestAnalyzer:
             print(f"Recommendation: {results['recommendation']}")
             
         print("=" * 60)
+        
+    
+if __name__ == '__main__':
+    ab_test = ABTestAnalyzer(alpha = 0.05, power = 0.8)
+    
+    print("\n Example 1:Required Sample Size")
+    print("-" * 40)
+    
+    baseline_accuracy = 0.85
+    min_detectable_effect = 0.05
+    
+    required_n = ab_test.calculate_sample_size(baseline_accuracy, min_detectable_effect)
+    print(f"Baseline accuracy: {baseline_accuracy:.1%}")
+    print(f"Want to detect: {min_detectable_effect:+.1%} change")
+    print(f"Required sample size: {required_n}")
+    
+    print("\n\n Example 2: Frequentist Z-Test")
+    print("-" * 40)
+    
+    
+    results_freq = ab_test.proportions_ztest(
+        successes_a = 850, n_a = 1000,
+        success_b = 870, n_b = 1000
+    )
+    
+    ab_test.print_results(results_freq)
+    
+    print("\n\n Example 3: Sequential Test (Peek at Results)")
+    print("-" * 40)
+    
+    np.random.seed(42)
+    results_a = np.random.binomial(1, 0.85, 500).tolist()
+    results_b = np.random.binomial(1, 0.87, 500).tolist()
+    
+    seq_result = ab_test.sequential_test(results_a, results_b)
+    
+    print(f"Decision: {seq_result['decision']}")
+    print(f"Message: {seq_result['message']}")
+    print(f"Sample collected: A = {seq_result['sample_a']}, B = {seq_result['sample_b']}")
+    
+    print("\n\n Example 4: Bayesian Test")
+    print("-" * 40)
+    
+    results_bayes = ab_test.bayesian_test(
+        successes_a = 850, n_a = 1000,
+        successes_b = 870, n_b = 1000
+    )
+    
+    ab_test.print_results(results_bayes)
+    
+    print("\n\n Example 5: Multi-Metric Testing")
+    print("-" * 40)
+    
+    metrics_a = {
+        'accuracy': np.random.normal(0.85, 0.02, 1000).tolist(),
+        'latency_ms': np.random.normal(50, 10, 1000).tolist(),
+        'precision': np.random.normal(0.82, 0.03, 1000).tolist()
+    }
+    
+    metrics_b = {
+        'accuracy': np.random.normal(0.87, 0.02, 1000).tolist(),
+        'latency_ms': np.random.normal(48, 10, 1000).tolist(),
+        'precision': np.random.normal(0.84, 0.03, 1000).tolist()
+    }
+    
+    multi_results = ab_test.multi_metric_test(metrics_a, metrics_b)
+    
+    print("\n Multi-Metric Results:")
+    for metric, result in multi_results.items():
+        print(f"\n {metric}:")
+        print(f" A: {result['mean_a']:.4f}")
+        print(f" B: {result['mean_b']:.4f}")
+        print(f" Change: {result['relative_difference']:+.1%}")
+        print(f" Significant: {'Yes' if result['significant'] else 'No'}")
+        
+        
+    print("\n" + "=" * 60)
+    print("Key Benefits of Statistical A/B Testing")
+    print("=" * 60)
+    print("Prevents premature conclusion")
+    print("Controls false positive rate")
+    print("Provides confidence intervals")
+    print("Supports early stopping (SPRT)")
+    print("Handles multiple metrics correctly")
+    print("=" * 60)
