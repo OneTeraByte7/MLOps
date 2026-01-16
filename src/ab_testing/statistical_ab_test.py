@@ -149,3 +149,79 @@ class ABTestAnalyzer:
             'expected_loss_if_choose_b': loss_if_choose_b,
             'recommendation': 'B' if prob_b_better > 0.95 else 'A' if prob_b_better < 0.05 else 'Continue'
         }
+        
+    def multi_metric_test(self, metrics_a: Dict[str, list],
+                          metrics_b: Dict[str, list]) -> Dict:
+        
+        n_metrics = len(metrics_a)
+        adjusted_alpha = self.alpha / n_metrics
+        results = {}
+        
+        for metric_name in metrics_a.keys():
+            data_a = metrics_a[metric_name]
+            data_b = metrics_b[metric_name]
+            
+            t_stat, p_value = stats.ttest_ind(data_a, data_b)
+            
+            mean_a = np.mean(data_a)
+            mean_b = np.mean(data_b)
+            
+            results[metric_name] = {
+                'mean_a': mean_a,
+                'mean_b': mean_b,
+                'difference': mean_b - mean_a,
+                'relative_difference': (mean_b - mean_a) / mean_a if mean_a != 0 else 0,
+                't_stattistics': t_stat,
+                'p_value': p_value,
+                'significant': p_value < adjusted_alpha,
+                'adjusted_alpha': adjusted_alpha
+            }
+            
+        return results
+    def generate_report(self, test_results: Dict,
+                        output_path: str = 'monitoring_reports/ab_test_results.json'):
+        
+        report = {
+            'timestamp': datetime.now().iosformat(),
+            'test_parameter': {
+                'alpha': self.alpha,
+                'power': self.power,
+                'min_sample_size': self.min_sample_size
+            },
+            'results': test_results
+        }
+        
+        os.makedirs(os.path.dirname(output_path), exist_ok = True)
+        with open(output_path, 'w') as f:
+            json.dump(report, f, indent = 2)
+            
+        print(f"A/B test report saved to {output_path}")
+        
+        return report
+    
+    def print_results(self, results: Dict):
+        print("\n " + "=" * 60)
+        print("AB Test results")
+        print("=" * 60)
+        
+        if 'variant_a_rate' in results:
+            print(f"\n Variant A; {results['variant_a_rate']:.4f}")
+            print(f"\n Variant B: {results['variant_b_rate']:.4f}")
+            print(f"\n Difference: {results['difference']:.4f} ({results['relative_difference']:+1%})")
+            print(f"P-value: {results['p_value']:.4f}")
+            print(f"95% CI: [{results['ci_lower']:.4f}, {results['ci_upper']:.4f}]")
+            
+            if results['significant']:
+                winner = 'B' if results['difference'] > 0 else 'A'
+                print(f"Significant: Variant {winner} wins !")
+                
+            else:
+                print(f"Not Significant: No clear winner yet")
+                
+        elif 'pron_b_better_than_a' in results:
+            print(f"\n Expected Rate A: {results['expected_tae_a']:.4f}")
+            print(f"Expected Rate B: {results['expected_rate_b']:.4f}")
+            print(f"P(B > A): {results['prob_b_better_than_a']:.1%}")
+            print(f"Recommendation: {results['recommendation']}")
+            
+        print("=" * 60)
