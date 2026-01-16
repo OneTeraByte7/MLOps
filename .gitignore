@@ -41,3 +41,5 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+dashboard/react-frontend/node_modules
