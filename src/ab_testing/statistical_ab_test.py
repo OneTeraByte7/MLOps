@@ -58,4 +58,43 @@ class ABTestAnalyzer:
         
     def sequential_test(self, results_a: list, results_b: list) -> Dict:
         
-        n_a = len
+        n_a = len(results_a)
+        n_b = len(results_b)
+        
+        if n_a < self.min_sample_size or n_b < self.min_sample_size:
+            return {
+                'decision': 'continue',
+                'message': f'Need {self.min_sample_size} samples per variant (have {n_a}/{n_b})'
+            }
+            
+        p_a = np.mean(results_a)
+        p_b = np.mean(results_b)
+        
+        successes_a = sum(results_a)
+        successes_b = sum(results_b)
+        
+        test_result = self.proportions_ztest(successes_a, n_a, successes_b, n_b)
+        
+        alpha_spending = self.alpha / 5
+        
+        if test_result['p_value'] < alpha_spending:
+            if p_b > p_a:
+                decision = 'B wins'
+            else:
+                decision = 'A wins'
+                
+        elif test_result['p_value'] > 1 - alpha_spending:
+            decision = 'no_difference'
+        else:
+            decision = 'continue'
+            
+        return{
+            'decision': decision,
+            'samples_a': n_a,
+            'samples_b': n_b,
+            'rate_a': p_a,
+            'rate_b': p_b,
+            'p_value': test_result['p_value'],
+            'confidence_interval': (test_result['ci_lower'], test_result['ci_upper']),
+            'message': self._get_decision_message(decision, test_result)
+        }
