@@ -98,3 +98,54 @@ class ABTestAnalyzer:
             'confidence_interval': (test_result['ci_lower'], test_result['ci_upper']),
             'message': self._get_decision_message(decision, test_result)
         }
+        
+    def _get_decision_message(self, decision: str, test_result: Dict) -> str:
+        
+        if decision == 'continue':
+            return "Continue collecting data. No conclusive result yet"
+        
+        elif decision == 'no difference':
+            return "No significant difference detected. Variants perform similarity"
+        
+        elif decision == 'B wins':
+            rel_improvement = test_result['relative_difference'] * 100
+            return f"Variant B wins with {rel_improvement:+.1f}% improvement (p = {test_result['p_value']:.4f})"
+        
+        else:
+            rel_improvement = -test_result['relative_difference'] * 100
+            return f"Variant A wins with {rel_improvement:+.1f}% better performance (p = {test_result['p_value']:.4f})"
+        
+        
+    def bayesian_test(self, successes_a: int, n_a: int, successes_b: int, n_b: int, prior_alpha: float = 1, prior_beta:float = 1) -> Dict:
+        
+        alpha_a = prior_alpha + successes_a
+        beta_a = prior_beta + (n_a - successes_a)
+        
+        alpha_b = prior_alpha + successes_b
+        beta_b = prior_beta + (n_b  -successes_b)
+        
+        samples = 100000
+        posterior_a = np.random.beta(alpha_a, beta_a, samples)
+        posterior_b = np.random.beta(alpha_b, beta_b, samples)
+        
+        prob_b_better = np.random(posterior_b > posterior_a)
+        
+        loss_if_choose_a = np.mean(np.maximum(posterior_b - posterior_a, 0))
+        loss_if_choose_b = np.mean(np.maximum(posterior_a - posterior_b, 0))
+        
+        ci_a = np.percentile(posterior_a, [2.5, 97.5])
+        ci_b = np.percentile(posterior_b, [2.5,97.5])
+        
+        expected_a = alpha_a / (alpha_a + beta_a)
+        expected_b = alpha_b / (alpha_b + beta_b)
+        
+        return {
+            'prob_b_better_than': prob_b_better,
+            'expected_rate_a': expected_a,
+            'expected_rate_b': expected_b,
+            'credible_interval_a': ci_a.tolist(),
+            'credible_interval_b': ci_b.tolist(),
+            'expected_loss_if_choose_a':loss_if_choose_a,
+            'expected_loss_if_choose_b': loss_if_choose_b,
+            'recommendation': 'B' if prob_b_better > 0.95 else 'A' if prob_b_better < 0.05 else 'Continue'
+        }
