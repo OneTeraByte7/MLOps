@@ -38,6 +38,9 @@ except ImportError:
         print("⚠️  Warning: Could not import ChurnExplainer. Explainability features disabled.")
         ChurnExplainer = None
 
+# Import prediction logger
+from api.prediction_logger import prediction_logger
+
 # Load config
 with open('config/config.yaml', 'r') as f:
     config = yaml.safe_load(f)
@@ -288,7 +291,8 @@ async def predict(customer: CustomerFeatures, explain: bool = False):
         latency = (datetime.now() - start_time).total_seconds()
         prediction_latency.observe(latency)
         
-        return PredictionResponse(
+        # Create response
+        response = PredictionResponse(
             customer_id=customer.customer_id,
             churn_probability=round(churn_prob, 4),
             churn_prediction=churn_pred,
@@ -298,6 +302,18 @@ async def predict(customer: CustomerFeatures, explain: bool = False):
             confidence_score=round(confidence, 4),
             explanation=explanation_text
         )
+        
+        # Log prediction for dashboard
+        prediction_logger.log_prediction({
+            'timestamp': response.timestamp,
+            'customer_id': response.customer_id,
+            'churn_probability': response.churn_probability,
+            'prediction': response.churn_prediction,
+            'risk_level': response.risk_level,
+            'model_version': response.model_version
+        })
+        
+        return response
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
@@ -365,32 +381,28 @@ async def explain_prediction(customer: CustomerFeatures):
 
 @app.get("/api/dashboard/overview")
 async def get_dashboard_overview():
-    """Get dashboard overview metrics with real/mock data"""
+    """Get dashboard overview metrics from real prediction data"""
     try:
-        # Try to load recent predictions from a file or generate mock data
-        predictions_file = 'data/recent_predictions.json'
+        # Get predictions from logger
+        predictions = prediction_logger.get_predictions(limit=10000)
         
-        if os.path.exists(predictions_file):
-            with open(predictions_file, 'r') as f:
-                predictions = json.load(f)
-        else:
-            # Generate mock predictions for demo
-            predictions = []
-            for i in range(1000):
-                predictions.append({
-                    'timestamp': (datetime.now() - pd.Timedelta(hours=np.random.randint(0, 24))).isoformat(),
-                    'customer_id': f'CUST_{i:06d}',
-                    'churn_probability': float(np.random.beta(2, 5)),
-                    'prediction': 'Yes' if np.random.random() < 0.25 else 'No',
-                    'risk_level': np.random.choice(['High', 'Medium', 'Low'], p=[0.15, 0.35, 0.50]),
-                    'model_version': np.random.choice(['v1.0.0', 'v1.1.0'], p=[0.6, 0.4])
-                })
+        if not predictions:
+            # Return empty state
+            return {
+                "total_predictions": 0,
+                "churn_rate": 0,
+                "high_risk_customers": 0,
+                "avg_confidence": 0,
+                "predictions": [],
+                "timestamp": datetime.now().isoformat(),
+                "message": "No predictions available yet. Make predictions using /predict endpoint."
+            }
         
         # Calculate metrics
         total = len(predictions)
-        churn_count = sum(1 for p in predictions if p['prediction'] == 'Yes')
-        high_risk = sum(1 for p in predictions if p['risk_level'] == 'High')
-        avg_confidence = sum(p['churn_probability'] for p in predictions) / total if total > 0 else 0
+        churn_count = sum(1 for p in predictions if p.get('prediction') == 'Yes')
+        high_risk = sum(1 for p in predictions if p.get('risk_level') == 'High')
+        avg_confidence = sum(p.get('churn_probability', 0) for p in predictions) / total
         
         # Recent 24h predictions
         recent_24h = [p for p in predictions if 
@@ -401,85 +413,85 @@ async def get_dashboard_overview():
             "churn_rate": churn_count / total if total > 0 else 0,
             "high_risk_customers": high_risk,
             "avg_confidence": avg_confidence,
-            "predictions": predictions[:100],  # Return latest 100
+            "predictions": predictions[-100:] if predictions else [],  # Latest 100
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
+        print(f"Error in dashboard overview: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/mlflow/runs")
 async def get_mlflow_runs():
-    """Get MLflow experiment runs"""
+    """Get MLflow experiment runs directly from SQLite database"""
     try:
-        import mlflow
-        mlflow.set_tracking_uri("http://localhost:5000")
-        mlflow.set_experiment("churn-prediction")
+        import sqlite3
         
-        runs = mlflow.search_runs(
-            order_by=["start_time DESC"],
-            max_results=20
-        )
+        # Connect to MLflow database
+        conn = sqlite3.connect('mlflow.db')
         
-        if len(runs) > 0:
-            # Convert to records
-            runs_data = []
-            for idx, row in runs.iterrows():
-                runs_data.append({
-                    'run_id': row.get('run_id', ''),
-                    'start_time': row.get('start_time', datetime.now()).isoformat() if pd.notna(row.get('start_time')) else datetime.now().isoformat(),
-                    'metrics': {
-                        'test_auc': float(row.get('metrics.test_auc', 0)) if pd.notna(row.get('metrics.test_auc')) else 0,
-                        'test_f1': float(row.get('metrics.test_f1', 0)) if pd.notna(row.get('metrics.test_f1')) else 0,
-                        'test_precision': float(row.get('metrics.test_precision', 0)) if pd.notna(row.get('metrics.test_precision')) else 0,
-                        'test_recall': float(row.get('metrics.test_recall', 0)) if pd.notna(row.get('metrics.test_recall')) else 0,
-                    },
-                    'params': {
-                        'max_depth': row.get('params.max_depth', ''),
-                        'learning_rate': row.get('params.learning_rate', ''),
-                    }
-                })
-            return {"runs": runs_data, "count": len(runs_data)}
-        else:
-            # Return mock data if no MLflow runs
-            mock_runs = []
-            for i in range(10):
-                mock_runs.append({
-                    'run_id': f'run_{i}',
-                    'start_time': (datetime.now() - pd.Timedelta(days=i)).isoformat(),
-                    'metrics': {
-                        'test_auc': 0.85 + np.random.random() * 0.1,
-                        'test_f1': 0.80 + np.random.random() * 0.1,
-                        'test_precision': 0.82 + np.random.random() * 0.1,
-                        'test_recall': 0.78 + np.random.random() * 0.1,
-                    },
-                    'params': {
-                        'max_depth': str(np.random.randint(3, 8)),
-                        'learning_rate': str(0.01 + np.random.random() * 0.09),
-                    }
-                })
-            return {"runs": mock_runs, "count": len(mock_runs)}
+        # Query runs with metrics and params
+        query = """
+        SELECT 
+            r.run_uuid,
+            r.experiment_id,
+            r.status,
+            datetime(r.start_time/1000, 'unixepoch') as start_time,
+            r.lifecycle_stage
+        FROM runs r
+        WHERE r.lifecycle_stage = 'active'
+        ORDER BY r.start_time DESC
+        LIMIT 20
+        """
+        
+        runs_df = pd.read_sql(query, conn)
+        
+        if len(runs_df) == 0:
+            conn.close()
+            return {"runs": [], "count": 0, "message": "No training runs found. Run: python train_model.py"}
+        
+        # Get metrics for each run
+        runs_data = []
+        for _, run in runs_df.iterrows():
+            run_uuid = run['run_uuid']
+            
+            # Get metrics for this run
+            metrics_query = f"""
+            SELECT key, value 
+            FROM metrics 
+            WHERE run_uuid = '{run_uuid}'
+            """
+            metrics_df = pd.read_sql(metrics_query, conn)
+            metrics_dict = dict(zip(metrics_df['key'], metrics_df['value']))
+            
+            # Get params for this run
+            params_query = f"""
+            SELECT key, value 
+            FROM params 
+            WHERE run_uuid = '{run_uuid}'
+            """
+            params_df = pd.read_sql(params_query, conn)
+            params_dict = dict(zip(params_df['key'], params_df['value']))
+            
+            runs_data.append({
+                'run_id': run_uuid,
+                'start_time': run['start_time'],
+                'status': run['status'],
+                'metrics': {
+                    'test_auc': float(metrics_dict.get('test_auc', 0)),
+                    'test_f1': float(metrics_dict.get('test_f1', 0)),
+                    'test_precision': float(metrics_dict.get('test_precision', 0)),
+                    'test_recall': float(metrics_dict.get('test_recall', 0)),
+                },
+                'params': params_dict
+            })
+        
+        conn.close()
+        return {"runs": runs_data, "count": len(runs_data)}
             
     except Exception as e:
-        print(f"MLflow error: {e}")
-        # Return mock data on error
-        mock_runs = []
-        for i in range(10):
-            mock_runs.append({
-                'run_id': f'run_{i}',
-                'start_time': (datetime.now() - pd.Timedelta(days=i)).isoformat(),
-                'metrics': {
-                    'test_auc': 0.85 + np.random.random() * 0.1,
-                    'test_f1': 0.80 + np.random.random() * 0.1,
-                    'test_precision': 0.82 + np.random.random() * 0.1,
-                    'test_recall': 0.78 + np.random.random() * 0.1,
-                },
-                'params': {
-                    'max_depth': str(np.random.randint(3, 8)),
-                    'learning_rate': str(0.01 + np.random.random() * 0.09),
-                }
-            })
-        return {"runs": mock_runs, "count": len(mock_runs)}
+        print(f"MLflow database error: {e}")
+        return {"runs": [], "count": 0, "error": str(e)}
 
 
 @app.get("/api/drift/latest")
@@ -493,44 +505,93 @@ async def get_drift_report():
                 report = json.load(f)
             return report
         else:
-            # Return mock drift data
-            features = ['monthly_revenue', 'logins_per_month', 'feature_usage_depth',
-                       'support_tickets', 'account_age_days', 'nps_score', 
-                       'payment_delays', 'days_since_last_login']
-            
-            feature_drift = {}
-            for feature in features:
-                psi = float(np.random.random() * 0.3)
-                feature_drift[feature] = {
-                    'psi': psi,
-                    'drift_detected': psi > 0.1,
-                    'mean_shift': float((np.random.random() - 0.5) * 0.3),
-                    'current_mean': float(np.random.random() * 100),
-                    'reference_mean': float(np.random.random() * 100)
-                }
-            
+            # No drift report available
             return {
                 'drift_status': {
-                    'overall_status': 'warning',
-                    'alerts': [
-                        {'severity': 'high', 'message': 'Significant drift detected in monthly_revenue'},
-                        {'severity': 'medium', 'message': 'Moderate drift in logins_per_month'}
-                    ],
-                    'recommendations': [
-                        'Consider retraining the model with recent data',
-                        'Investigate changes in customer behavior patterns',
-                        'Review feature engineering pipeline'
-                    ]
+                    'overall_status': 'healthy',
+                    'alerts': [],
+                    'recommendations': []
                 },
-                'drifted_features_count': sum(1 for f in feature_drift.values() if f['drift_detected']),
-                'feature_drift': feature_drift,
-                'label_drift': {'churn_rate_change': 0.023},
-                'model_performance': {'auc': 0.9234},
-                'timestamp': datetime.now().isoformat()
+                'drifted_features_count': 0,
+                'feature_drift': {},
+                'label_drift': {'churn_rate_change': 0},
+                'model_performance': {'auc': 0},
+                'timestamp': datetime.now().isoformat(),
+                'message': 'No drift report available. Run drift detection first.'
             }
             
     except Exception as e:
+        print(f"Drift report error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/training/stats")
+async def get_training_stats():
+    """Get training statistics from MLflow database"""
+    try:
+        import sqlite3
+        
+        conn = sqlite3.connect('mlflow.db')
+        
+        # Get total training runs
+        total_runs = pd.read_sql("SELECT COUNT(*) as count FROM runs", conn)['count'][0]
+        
+        # Get recent runs count
+        recent_query = """
+        SELECT COUNT(*) as count 
+        FROM runs 
+        WHERE start_time > (strftime('%s', 'now', '-7 days') * 1000)
+        """
+        recent_runs = pd.read_sql(recent_query, conn)['count'][0]
+        
+        # Get best model metrics
+        best_model_query = """
+        SELECT m.key, m.value
+        FROM metrics m
+        JOIN runs r ON m.run_uuid = r.run_uuid
+        WHERE m.key IN ('test_auc', 'test_f1', 'test_precision', 'test_recall')
+        ORDER BY r.start_time DESC
+        LIMIT 4
+        """
+        best_metrics = pd.read_sql(best_model_query, conn)
+        best_metrics_dict = dict(zip(best_metrics['key'], best_metrics['value']))
+        
+        # Get training history
+        history_query = """
+        SELECT 
+            datetime(r.start_time/1000, 'unixepoch') as date,
+            COUNT(*) as runs_count
+        FROM runs r
+        GROUP BY date(r.start_time/1000, 'unixepoch')
+        ORDER BY r.start_time DESC
+        LIMIT 30
+        """
+        history = pd.read_sql(history_query, conn)
+        
+        conn.close()
+        
+        return {
+            "total_runs": int(total_runs),
+            "recent_runs_7d": int(recent_runs),
+            "best_model": {
+                "auc": float(best_metrics_dict.get('test_auc', 0)),
+                "f1": float(best_metrics_dict.get('test_f1', 0)),
+                "precision": float(best_metrics_dict.get('test_precision', 0)),
+                "recall": float(best_metrics_dict.get('test_recall', 0))
+            },
+            "training_history": history.to_dict('records'),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"Training stats error: {e}")
+        return {
+            "total_runs": 0,
+            "recent_runs_7d": 0,
+            "best_model": {"auc": 0, "f1": 0, "precision": 0, "recall": 0},
+            "training_history": [],
+            "error": str(e)
+        }
 
 
 @app.get("/api/explainability/importance")
@@ -541,7 +602,6 @@ async def get_feature_importance():
         importance_file = 'monitoring/reports/explainability/feature_importance.csv'
         
         if os.path.exists(importance_file):
-            import pandas as pd
             df = pd.read_csv(importance_file)
             return {
                 "features": df.to_dict('records'),
@@ -550,7 +610,6 @@ async def get_feature_importance():
         else:
             # Generate from model
             if 'model_a' in models:
-                feature_names = config['data']['numeric_features'] + config['data']['categorical_features']
                 importance_dict = models['model_a'].get_score(importance_type='gain')
                 
                 features = []
@@ -568,37 +627,11 @@ async def get_feature_importance():
                 features.sort(key=lambda x: x['importance'], reverse=True)
                 return {"features": features[:15], "count": len(features)}
             else:
-                # Return mock data
-                mock_features = [
-                    {'feature': 'monthly_revenue', 'importance': 0.18},
-                    {'feature': 'logins_per_month', 'importance': 0.15},
-                    {'feature': 'feature_usage_depth', 'importance': 0.13},
-                    {'feature': 'support_tickets', 'importance': 0.12},
-                    {'feature': 'account_age_days', 'importance': 0.11},
-                    {'feature': 'nps_score', 'importance': 0.09},
-                    {'feature': 'payment_delays', 'importance': 0.08},
-                    {'feature': 'days_since_last_login', 'importance': 0.07},
-                    {'feature': 'team_size', 'importance': 0.04},
-                    {'feature': 'api_calls_per_month', 'importance': 0.03},
-                ]
-                return {"features": mock_features, "count": len(mock_features)}
+                return {"features": [], "count": 0, "message": "No model available"}
                 
     except Exception as e:
         print(f"Feature importance error: {e}")
-        # Return mock data on error
-        mock_features = [
-            {'feature': 'monthly_revenue', 'importance': 0.18},
-            {'feature': 'logins_per_month', 'importance': 0.15},
-            {'feature': 'feature_usage_depth', 'importance': 0.13},
-            {'feature': 'support_tickets', 'importance': 0.12},
-            {'feature': 'account_age_days', 'importance': 0.11},
-            {'feature': 'nps_score', 'importance': 0.09},
-            {'feature': 'payment_delays', 'importance': 0.08},
-            {'feature': 'days_since_last_login', 'importance': 0.07},
-            {'feature': 'team_size', 'importance': 0.04},
-            {'feature': 'api_calls_per_month', 'importance': 0.03},
-        ]
-        return {"features": mock_features, "count": len(mock_features)}
+        return {"features": [], "count": 0, "error": str(e)}
 
 
 if __name__ == "__main__":
