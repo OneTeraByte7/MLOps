@@ -9,11 +9,20 @@ const DriftAnalysis = ({ lastUpdated }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let isMounted = true
+    const controller = new AbortController()
+    
     const fetchDriftData = async () => {
       try {
         setLoading(true)
-        const response = await fetch('http://localhost:8000/api/drift/latest')
+        const response = await fetch('http://localhost:8000/api/drift/latest', {
+          signal: controller.signal
+        })
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+        
         const report = await response.json()
+        if (!isMounted) return
         
         setDriftStatus(report.drift_status.overall_status)
         
@@ -26,19 +35,43 @@ const DriftAnalysis = ({ lastUpdated }) => {
         
         setAlerts(report.drift_status.alerts)
       } catch (error) {
-        console.error('Failed to fetch drift data:', error)
+        if (error.name !== 'AbortError') {
+          console.error('Failed to fetch drift data:', error)
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
     fetchDriftData()
+    
+    return () => {
+      isMounted = false
+      controller.abort()
+    }
   }, [lastUpdated])
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-xl text-gray-600">Loading drift analysis data...</div>
+      </div>
+    )
+  }
+
+  // Show message if no drift data
+  if (featureDrift.length === 0) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <h1 className="text-3xl font-bold text-gray-900">
+          🔍 Data & Model Drift Analysis
+        </h1>
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-8 text-center">
+          <p className="text-xl text-gray-700 mb-4">No drift report available.</p>
+          <p className="text-gray-600">Run drift detection to see analysis here.</p>
+        </div>
       </div>
     )
   }

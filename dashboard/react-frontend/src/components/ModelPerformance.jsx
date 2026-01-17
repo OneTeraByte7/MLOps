@@ -14,11 +14,21 @@ const ModelPerformance = ({ lastUpdated }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let isMounted = true
+    const controller = new AbortController()
+    
     const fetchMLflowData = async () => {
       try {
         setLoading(true)
-        const response = await fetch('http://localhost:8000/api/mlflow/runs')
+        const response = await fetch('http://localhost:8000/api/mlflow/runs', {
+          signal: controller.signal
+        })
+        
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+        
         const data = await response.json()
+        if (!isMounted) return
+        
         const runs = data.runs || []
         
         if (runs.length > 0) {
@@ -39,19 +49,43 @@ const ModelPerformance = ({ lastUpdated }) => {
           setPerformanceData(performanceRuns)
         }
       } catch (error) {
-        console.error('Failed to fetch MLflow data:', error)
+        if (error.name !== 'AbortError') {
+          console.error('Failed to fetch MLflow data:', error)
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
     fetchMLflowData()
+    
+    return () => {
+      isMounted = false
+      controller.abort()
+    }
   }, [lastUpdated])
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-xl text-gray-600">Loading model performance data...</div>
+      </div>
+    )
+  }
+
+  // Show message if no MLflow data
+  if (performanceData.length === 0) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <h1 className="text-3xl font-bold text-gray-900">
+          🎯 Model Performance Tracking
+        </h1>
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-8 text-center">
+          <p className="text-xl text-gray-700 mb-4">No MLflow experiment data available.</p>
+          <p className="text-gray-600">Train models to see performance metrics here.</p>
+        </div>
       </div>
     )
   }
