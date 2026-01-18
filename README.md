@@ -190,12 +190,11 @@ python src/models/train.py
 
 ```bash
 # Start the API
-python src/api/app.py
+python -m uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000
 
 # API available at: http://localhost:8000
 # Interactive docs: http://localhost:8000/docs
 ```
-
 ### Test Prediction
 
 ```bash

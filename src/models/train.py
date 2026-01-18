@@ -198,7 +198,49 @@ class ChurnModelTrainer:
             print(f"✓ Test AUC: {test_metrics['test_auc']:.4f}")
             print(f"✓ Model saved to {model_path}")
             print(f"✓ MLflow run: {mlflow.active_run().info.run_id}")
-            
+            # Attempt to record model metadata to Supabase for dashboarding/registry
+            try:
+                from dotenv import load_dotenv
+                load_dotenv()
+                SUPABASE_PROJECT_ID = os.environ.get('SUPABASE_PROJECT_ID')
+                SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ.get('SUPABASE_ANON_KEY')
+
+                if SUPABASE_PROJECT_ID and SUPABASE_KEY:
+                    try:
+                        from supabase import create_client
+                        sb_url = f"https://{SUPABASE_PROJECT_ID}.supabase.co"
+                        sb = create_client(sb_url, SUPABASE_KEY)
+
+                        run_id = mlflow.active_run().info.run_id if mlflow.active_run() else None
+                        record = {
+                            'run_id': run_id,
+                            'timestamp': datetime.now().isoformat(),
+                            'model_path': model_path,
+                            'test_metrics': test_metrics,
+                            'feature_names': feature_names,
+                            'feature_importance': importance_df.to_dict('records')
+                        }
+
+                        # Try inserting directly (expects a models table with appropriate columns)
+                        res = sb.table('models').insert(record).execute()
+                        if getattr(res, 'status_code', None) in (200, 201) or getattr(res, 'data', None):
+                            print('\n✓ Model metadata inserted into Supabase `models` table')
+                        else:
+                            # Fallback: insert into generic table `model_registry` as JSONB
+                            try:
+                                alt = {'report': record, 'timestamp': record['timestamp']}
+                                alt_res = sb.table('model_registry').insert(alt).execute()
+                                if getattr(alt_res, 'status_code', None) in (200,201) or getattr(alt_res, 'data', None):
+                                    print('\n✓ Model metadata inserted into Supabase `model_registry` (report JSONB)')
+                            except Exception as e:
+                                print(f"⚠ Supabase fallback insert failed: {e}")
+                    except Exception as e:
+                        print(f"⚠ Could not initialize Supabase client: {e}")
+                else:
+                    print('⚠ Supabase credentials not found in environment; skipping model metadata insert')
+            except Exception as e:
+                print(f"⚠ Unexpected error while saving model metadata to Supabase: {e}")
+
             return self.model, test_metrics
 
 if __name__ == "__main__":
