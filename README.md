@@ -327,6 +327,15 @@ python pipelines/retraining_pipeline.py
 python pipelines/retraining_pipeline.py --force
 ```
 
+### 5. MLFlow Server
+
+```bash
+mlflow server \
+  --backend-store-uri sqlite:///mlflow.db \
+  --default-artifact-root ./mlruns/artifacts \
+  --host 0.0.0.0 --port 5000
+```
+
 ---
 
 ## 📊 Monitoring & Drift Detection
