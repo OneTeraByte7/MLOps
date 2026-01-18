@@ -43,3 +43,4 @@ htmlcov/
 Thumbs.db
 
 dashboard/react-frontend/node_modules
+.env
