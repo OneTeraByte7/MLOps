@@ -6,20 +6,51 @@ import sys
 import time
 import os
 import signal
+from dotenv import load_dotenv
+
+load_dotenv()
 
 processes = []
 
 def start_mlflow():
     """Start MLflow tracking server"""
     print("🚀 Starting MLflow Tracking Server...")
-    cmd = [
-        sys.executable, "-m", "mlflow", "server",
-        "--backend-store-uri", "sqlite:///mlflow.db",
-        "--default-artifact-root", "./mlruns",
-        "--host", "0.0.0.0",
-        "--port", "5000"
-    ]
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Use Supabase/Postgres backend if SUPABASE_URL is present in environment
+    supabase_db = os.environ.get('SUPABASE_URL') or os.environ.get('DATABASE_URL')
+    cmd = [sys.executable, "-m", "mlflow", "server"]
+    env = os.environ.copy()
+
+    if supabase_db:
+        backend = supabase_db
+        if backend.startswith('postgresql://'):
+            backend = backend.replace('postgresql://', 'postgresql+psycopg2://', 1)
+
+        cmd += [
+            "--backend-store-uri", backend,
+            "--default-artifact-root", "s3://mlflow-artifacts",
+            "--host", "0.0.0.0",
+            "--port", "5000"
+        ]
+
+        # Configure S3-compatible endpoint for Supabase Storage (if project id available)
+        supabase_proj = os.environ.get('SUPABASE_PROJECT_ID')
+        supabase_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ.get('SUPABASE_ANON_KEY') or os.environ.get('SUPABSE_ANON_KEY')
+        if supabase_proj:
+            env['MLFLOW_S3_ENDPOINT_URL'] = f"https://{supabase_proj}.supabase.co/storage/v1"
+        if supabase_key:
+            env['AWS_ACCESS_KEY_ID'] = supabase_key
+            env['AWS_SECRET_ACCESS_KEY'] = supabase_key
+
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+    else:
+        cmd += [
+            "--backend-store-uri", "sqlite:///mlflow.db",
+            "--default-artifact-root", "./mlruns",
+            "--host", "0.0.0.0",
+            "--port", "5000"
+        ]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
     processes.append(proc)
     time.sleep(3)
     print("✓ MLflow running on http://localhost:5000")
@@ -130,7 +161,7 @@ def main():
         print("  • API Docs:         http://localhost:8000/docs")
         print("  • MLflow UI:        http://localhost:5000")
         print("\n💡 Tips:")
-        print("  • Dashboard shows REAL data from mlflow.db")
+        print("  • Dashboard reads REAL prediction data from Supabase (if configured)")
         print("  • To make predictions: python populate_dashboard.py")
         if not react_proc:
             print("  • To start React manually: cd dashboard/react-frontend && npm run dev")
