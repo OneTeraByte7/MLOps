@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Start all MLOps services: API, MLflow, and React Dashboard
 """
