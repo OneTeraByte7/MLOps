@@ -59,6 +59,16 @@ This project demonstrates best practices for deploying machine learning models t
 - Automated deployment to production
 
 ---
+## 🌐 Execution
+<img width="1920" height="1200" alt="Screenshot 2026-01-18 210456" src="https://github.com/user-attachments/assets/a3e27c21-7ba8-4d83-98d2-19483b027649" />
+<img width="1920" height="1200" alt="Screenshot 2026-01-18 210400" src="https://github.com/user-attachments/assets/35840e75-f24f-40b9-949c-b6192c89675e" />
+<img width="1920" height="1200" alt="Screenshot 2026-01-18 210305" src="https://github.com/user-attachments/assets/0964eb3c-3bdf-4520-9cbe-d01c5b983f8c" />
+<img width="1920" height="1200" alt="Screenshot 2026-01-18 210041" src="https://github.com/user-attachments/assets/cb5c4742-3a93-4031-a5f9-604857d65c2f" />
+<img width="1920" height="1200" alt="Screenshot 2026-01-18 210004" src="https://github.com/user-attachments/assets/3d3fb648-85ea-4c9e-9546-a174246c1ad6" />
+<img width="1920" height="1200" alt="Screenshot 2026-01-18 205949" src="https://github.com/user-attachments/assets/e2bdb4ac-e06f-479a-a988-3d08f04c7d8f" />
+
+
+---
 
 ## 🏗️ Architecture
 
