@@ -459,11 +459,34 @@ async def get_mlflow_runs():
     """Get MLflow experiment runs directly from SQLite database"""
     try:
         client = MlflowClient(tracking_uri=mlflow.get_tracking_uri())
-        # List experiments and search across them to avoid NoneType returns
-        exps = client.list_experiments()
-        exp_ids = [e.experiment_id for e in exps] if exps else None
+        # Try to list experiments (some MlflowClient versions may not expose list_experiments)
+        exp_ids = None
+        try:
+            if hasattr(client, 'list_experiments'):
+                exps = client.list_experiments()
+                exp_ids = [e.experiment_id for e in exps] if exps else None
+        except Exception:
+            exp_ids = None
 
-        runs = client.search_runs(experiment_ids=exp_ids, filter_string="", max_results=20)
+        # If listing experiments isn't available, fall back to searching across all experiments
+        try:
+            # Prefer calling with keyword when we have exp_ids
+            if exp_ids is not None:
+                runs = client.search_runs(experiment_ids=exp_ids, filter_string="", max_results=20)
+            else:
+                # Some MlflowClient versions require the first positional arg (experiment_ids)
+                runs = client.search_runs(None, filter_string="", max_results=20)
+        except TypeError:
+            # Try the positional-None fallback if signature differs
+            try:
+                runs = client.search_runs(None, filter_string="", max_results=20)
+            except Exception as e:
+                print(f"MLflow search_runs error: {e}")
+                runs = []
+
+        # Normalize in case client.search_runs returns None instead of an empty list
+        if runs is None:
+            runs = []
 
         if not runs:
             return {"runs": [], "count": 0, "message": "No training runs found. Run: python train_model.py"}
@@ -511,27 +534,38 @@ async def get_mlflow_runs():
 async def get_drift_report():
     """Get latest drift report"""
     try:
+        # Prefer Supabase drift_reports table when configured
+        try:
+            sb = getattr(prediction_logger, 'supabase_client', None)
+            if sb:
+                res = sb.table('drift_reports').select('*').order('timestamp', desc=True).limit(1).execute()
+                data = res.data if hasattr(res, 'data') else res
+                if isinstance(data, list) and len(data) > 0:
+                    return data[0]
+        except Exception as e:
+            print(f"⚠ Supabase drift fetch error: {e}")
+
+        # Fallback to local file
         report_path = 'monitoring/reports/latest_report.json'
-        
         if os.path.exists(report_path):
             with open(report_path, 'r') as f:
                 report = json.load(f)
             return report
-        else:
-            # No drift report available
-            return {
-                'drift_status': {
-                    'overall_status': 'healthy',
-                    'alerts': [],
-                    'recommendations': []
-                },
-                'drifted_features_count': 0,
-                'feature_drift': {},
-                'label_drift': {'churn_rate_change': 0},
-                'model_performance': {'auc': 0},
-                'timestamp': datetime.now().isoformat(),
-                'message': 'No drift report available. Run drift detection first.'
-            }
+
+        # No drift report available
+        return {
+            'drift_status': {
+                'overall_status': 'healthy',
+                'alerts': [],
+                'recommendations': []
+            },
+            'drifted_features_count': 0,
+            'feature_drift': {},
+            'label_drift': {'churn_rate_change': 0},
+            'model_performance': {'auc': 0},
+            'timestamp': datetime.now().isoformat(),
+            'message': 'No drift report available. Run drift detection first.'
+        }
             
     except Exception as e:
         print(f"Drift report error: {e}")
@@ -598,36 +632,46 @@ async def get_training_stats():
 async def get_feature_importance():
     """Get global feature importance"""
     try:
+        # Prefer Supabase feature_importance table when configured
+        try:
+            sb = getattr(prediction_logger, 'supabase_client', None)
+            if sb:
+                res = sb.table('feature_importance').select('*').order('importance', desc=True).limit(50).execute()
+                data = res.data if hasattr(res, 'data') else res
+                if isinstance(data, list) and data:
+                    return {"features": data, "count": len(data)}
+        except Exception as e:
+            print(f"⚠ Supabase feature_importance fetch error: {e}")
+
         # Try to load from saved file or calculate from model
         importance_file = 'monitoring/reports/explainability/feature_importance.csv'
-        
         if os.path.exists(importance_file):
             df = pd.read_csv(importance_file)
             return {
                 "features": df.to_dict('records'),
                 "count": len(df)
             }
+
+        # Generate from model
+        if 'model_a' in models:
+            importance_dict = models['model_a'].get_score(importance_type='gain')
+
+            features = []
+            for fname, score in importance_dict.items():
+                features.append({
+                    'feature': fname,
+                    'importance': float(score)
+                })
+
+            # Normalize
+            total = sum(f['importance'] for f in features)
+            for f in features:
+                f['importance'] = f['importance'] / total if total > 0 else 0
+
+            features.sort(key=lambda x: x['importance'], reverse=True)
+            return {"features": features[:15], "count": len(features)}
         else:
-            # Generate from model
-            if 'model_a' in models:
-                importance_dict = models['model_a'].get_score(importance_type='gain')
-                
-                features = []
-                for fname, score in importance_dict.items():
-                    features.append({
-                        'feature': fname,
-                        'importance': float(score)
-                    })
-                
-                # Normalize
-                total = sum(f['importance'] for f in features)
-                for f in features:
-                    f['importance'] = f['importance'] / total if total > 0 else 0
-                
-                features.sort(key=lambda x: x['importance'], reverse=True)
-                return {"features": features[:15], "count": len(features)}
-            else:
-                return {"features": [], "count": 0, "message": "No model available"}
+            return {"features": [], "count": 0, "message": "No model available"}
                 
     except Exception as e:
         print(f"Feature importance error: {e}")

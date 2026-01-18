@@ -71,14 +71,28 @@ class PredictionLogger:
             if self.supabase_url:
                 try:
                     import requests
-                    resp = requests.post(self.supabase_url, headers=self.supabase_headers, json=[prediction_data], timeout=5)
-                    if resp.status_code in (200, 201):
-                        self.predictions.append(prediction_data)
-                        if len(self.predictions) > self.max_predictions:
-                            self.predictions = self.predictions[-self.max_predictions:]
-                        return
-                    else:
-                        print(f"⚠ Supabase REST insert failed: {resp.status_code} {resp.text}")
+                    # Retry a few times for transient network issues (Supabase can be flaky)
+                    attempts = 3
+                    for a in range(attempts):
+                        try:
+                            resp = requests.post(self.supabase_url, headers=self.supabase_headers, json=[prediction_data], timeout=15)
+                            if resp.status_code in (200, 201):
+                                self.predictions.append(prediction_data)
+                                if len(self.predictions) > self.max_predictions:
+                                    self.predictions = self.predictions[-self.max_predictions:]
+                                return
+                            else:
+                                # non-2xx response - log and break (no point retrying for auth errors)
+                                print(f"⚠ Supabase REST insert failed: {resp.status_code} {resp.text}")
+                                break
+                        except requests.exceptions.RequestException as re:
+                            if a < attempts - 1:
+                                # backoff
+                                import time
+                                time.sleep(1 + a)
+                                continue
+                            print(f"⚠ Supabase REST insert error after {attempts} attempts: {re}")
+                            break
                 except Exception as e:
                     print(f"⚠ Supabase REST insert error: {e}")
 
@@ -116,14 +130,26 @@ class PredictionLogger:
                 params = {'select': '*', 'order': 'timestamp.desc'}
                 if limit:
                     params['limit'] = limit
-                resp = requests.get(self.supabase_url, headers=self.supabase_headers, params=params, timeout=5)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    if isinstance(data, list):
-                        # Supabase returns newest-first; return oldest-first for the dashboard
-                        return list(reversed(data)) if data else []
-                else:
-                    print(f"⚠ Supabase REST fetch failed: {resp.status_code} {resp.text}")
+                attempts = 3
+                for a in range(attempts):
+                    try:
+                        resp = requests.get(self.supabase_url, headers=self.supabase_headers, params=params, timeout=15)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            if isinstance(data, list):
+                                # Supabase returns newest-first; return oldest-first for the dashboard
+                                return list(reversed(data)) if data else []
+                            return []
+                        else:
+                            print(f"⚠ Supabase REST fetch failed: {resp.status_code} {resp.text}")
+                            break
+                    except requests.exceptions.RequestException as re:
+                        if a < attempts - 1:
+                            import time
+                            time.sleep(1 + a)
+                            continue
+                        print(f"⚠ Supabase REST fetch error after {attempts} attempts: {re}")
+                        break
             except Exception as e:
                 print(f"⚠ Supabase REST fetch error: {e}")
 

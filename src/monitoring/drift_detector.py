@@ -215,23 +215,82 @@ class DriftDetector:
         return status
     
     def save_report(self, report, output_dir = 'monitoring/reports'):
-        
+        # Try to save drift report into Supabase `drift_reports` table when available.
+        try:
+            from dotenv import load_dotenv
+            from supabase import create_client
+            load_dotenv()
+
+            SUPABASE_PROJECT_ID = os.environ.get('SUPABASE_PROJECT_ID')
+            SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ.get('SUPABASE_ANON_KEY')
+
+            if SUPABASE_PROJECT_ID and SUPABASE_KEY:
+                sb_url = f"https://{SUPABASE_PROJECT_ID}.supabase.co"
+                sb = create_client(sb_url, SUPABASE_KEY)
+
+                # Attempt insert with retries for transient errors
+                import time
+                attempts = 3
+                for a in range(attempts):
+                    try:
+                        # Supabase expects a list for insert when using the REST-style client
+                        res = sb.table('drift_reports').insert(report).execute()
+                        data = res.data if hasattr(res, 'data') else res
+                        # If insert returned data or status, consider it successful
+                        if getattr(res, 'status_code', None) in (200, 201) or data:
+                            print('\nDrift report inserted into Supabase `drift_reports`')
+                            return True
+                        else:
+                            # If response indicates failure, check for missing-column error and try JSONB fallback
+                            msg = ''
+                            try:
+                                # Some clients return dict-like error info
+                                if isinstance(res, dict) and 'message' in res:
+                                    msg = res.get('message') or ''
+                                else:
+                                    msg = str(res)
+                            except Exception:
+                                msg = str(res)
+
+                            print(f"⚠ Supabase insert returned: {res}")
+                            if 'Could not find' in msg or 'PGRST204' in msg:
+                                # Try inserting the whole report into a single JSONB column `report`
+                                try:
+                                    alt_payload = {'report': report, 'timestamp': report.get('timestamp')}
+                                    alt_res = sb.table('drift_reports').insert(alt_payload).execute()
+                                    alt_data = alt_res.data if hasattr(alt_res, 'data') else alt_res
+                                    if getattr(alt_res, 'status_code', None) in (200, 201) or alt_data:
+                                        print('\nDrift report inserted into Supabase `drift_reports` as JSONB `report` column')
+                                        return True
+                                except Exception as e:
+                                    print(f"⚠ Supabase JSONB fallback insert failed: {e}")
+                            break
+                    except Exception as e:
+                        if a < attempts - 1:
+                            time.sleep(1 + a)
+                            continue
+                        print(f"⚠ Supabase insert failed after {attempts} attempts: {e}")
+                        break
+        except Exception as e:
+            # If supabase client not available or env misconfigured, fall back to file
+            print(f"⚠ Supabase unavailable for drift report insert: {e}")
+
+        # Fallback: write to disk (only if Supabase insert failed)
         os.makedirs(output_dir, exist_ok = True)
-        
+
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f"drift_report_{timestamp}.json"
         filepath = os.path.join(output_dir, filename)
-        
+
         with open(filepath,'w') as f:
             json.dump(report, f, indent = 2)
-            
-            
-        print(f"\nDrift Report saved to {filepath}")
-        
+
+        print(f"\nDrift Report saved to {filepath} (fallback)")
+
         latest_path = os.path.join(output_dir, 'latest_report.json')
         with open(latest_path, 'w') as f:
             json.dump(report, f, indent = 2)
-            
+
         return filepath
     
     def print_summary(elf, report):
