@@ -12,7 +12,7 @@ import joblib
 import json
 import numpy as np
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 import yaml
 import os
 from dotenv import load_dotenv
@@ -422,9 +422,24 @@ async def get_dashboard_overview():
         high_risk = sum(1 for p in predictions if p.get('risk_level') == 'High')
         avg_confidence = sum(p.get('churn_probability', 0) for p in predictions) / total
         
-        # Recent 24h predictions
-        recent_24h = [p for p in predictions if 
-                     (datetime.now() - datetime.fromisoformat(p['timestamp'])).total_seconds() < 86400]
+        # Recent 24h predictions (handle offset-aware and naive timestamps)
+        def _to_utc(dt_str):
+            try:
+                dt = datetime.fromisoformat(dt_str)
+                if dt.tzinfo is None:
+                    return dt.replace(tzinfo=timezone.utc)
+                return dt.astimezone(timezone.utc)
+            except Exception:
+                return None
+
+        now_utc = datetime.now(timezone.utc)
+        recent_24h = []
+        for p in predictions:
+            ts = _to_utc(p.get('timestamp'))
+            if not ts:
+                continue
+            if (now_utc - ts).total_seconds() < 86400:
+                recent_24h.append(p)
         
         return {
             "total_predictions": len(recent_24h),
@@ -444,22 +459,39 @@ async def get_mlflow_runs():
     """Get MLflow experiment runs directly from SQLite database"""
     try:
         client = MlflowClient(tracking_uri=mlflow.get_tracking_uri())
+        # List experiments and search across them to avoid NoneType returns
+        exps = client.list_experiments()
+        exp_ids = [e.experiment_id for e in exps] if exps else None
 
-        # Get latest 20 runs across experiments
-        runs = client.search_runs(experiment_ids=None, filter_string="", run_view_type=1, max_results=20)
+        runs = client.search_runs(experiment_ids=exp_ids, filter_string="", max_results=20)
 
         if not runs:
             return {"runs": [], "count": 0, "message": "No training runs found. Run: python train_model.py"}
 
         runs_data = []
-        for r in runs:
-            metrics = {k: float(v) for k, v in r.data.metrics.items()} if r.data.metrics else {}
-            params = dict(r.data.params) if r.data.params else {}
+        for r in runs or []:
+            if r is None or getattr(r, 'data', None) is None:
+                continue
+
+            # Safely extract metrics and params
+            metrics = {}
+            try:
+                if getattr(r.data, 'metrics', None):
+                    metrics = {k: float(v) for k, v in (r.data.metrics.items() if hasattr(r.data.metrics, 'items') else r.data.metrics)}
+            except Exception:
+                metrics = {}
+
+            params = {}
+            try:
+                if getattr(r.data, 'params', None):
+                    params = dict(r.data.params) if hasattr(r.data.params, 'items') else dict(r.data.params)
+            except Exception:
+                params = {}
 
             runs_data.append({
-                'run_id': r.info.run_id,
-                'start_time': datetime.fromtimestamp(r.info.start_time / 1000).isoformat() if r.info.start_time else None,
-                'status': r.info.status,
+                'run_id': getattr(r.info, 'run_id', None),
+                'start_time': datetime.fromtimestamp(r.info.start_time / 1000).isoformat() if getattr(r.info, 'start_time', None) else None,
+                'status': getattr(r.info, 'status', None),
                 'metrics': {
                     'test_auc': metrics.get('test_auc', 0),
                     'test_f1': metrics.get('test_f1', 0),
