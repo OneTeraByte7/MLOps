@@ -13,21 +13,6 @@ This project demonstrates best practices for deploying machine learning models t
 
 ---
 
-## 📋 Table of Contents
-
-- [Features](#features)
-- [Architecture](#architecture)
-- [Quick Start](#quick-start)
-- [Project Structure](#project-structure)
-- [Usage Guide](#usage-guide)
-- [Monitoring & Drift Detection](#monitoring--drift-detection)
-- [Automated Retraining](#automated-retraining)
-- [API Documentation](#api-documentation)
-- [CI/CD Pipeline](#cicd-pipeline)
-- [Deployment](#deployment)
-
----
-
 ## ✨ Features
 
 ### Core MLOps Capabilities
