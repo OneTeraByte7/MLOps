@@ -334,7 +334,8 @@ if __name__ == "__main__":
     print("="*60)
     
     sample_size = min(1000, len(X_test))
-    sample_indices = np.random.choice(len(X_test), sample_size, replace = False)
+    # deterministic sampling: use first N examples
+    sample_indices = np.arange(sample_size)
     X_sample = X_test[sample_indices]
     
     importance_df = explainer.explain_model_globally(X_sample)

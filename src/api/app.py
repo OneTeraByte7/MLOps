@@ -15,9 +15,11 @@ import pandas as pd
 from datetime import datetime
 import yaml
 import os
+from dotenv import load_dotenv
+import mlflow
+from mlflow.tracking import MlflowClient
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
 from fastapi.responses import Response
-import random
 import sys
 import os
 
@@ -44,6 +46,14 @@ from api.prediction_logger import prediction_logger
 # Load config
 with open('config/config.yaml', 'r') as f:
     config = yaml.safe_load(f)
+
+# Load environment variables from .env (Supabase credentials, MLflow URI overrides)
+load_dotenv()
+
+# Set MLflow tracking URI from environment if provided, otherwise use config
+mlflow_tracking_uri = os.environ.get('MLFLOW_TRACKING_URI') or config.get('mlflow', {}).get('tracking_uri')
+if mlflow_tracking_uri:
+    mlflow.set_tracking_uri(mlflow_tracking_uri)
 
 # Initialize FastAPI
 app = FastAPI(
@@ -197,15 +207,23 @@ async def get_model_info():
         "traffic_split": config['ab_testing']['traffic_split']
     }
 
-def select_model():
+def select_model(customer_id: str):
     """Select model for prediction (A/B testing logic)"""
+    # Default: return model A if B not configured
     if not config['ab_testing']['enabled'] or 'model_b' not in models:
         return models['model_a'], models['model_a_version']
-    
-    # Traffic split
+
+    # Traffic split: deterministic hash on customer_id
     split = config['ab_testing']['traffic_split']
-    
-    if random.random() < split['model_a']:
+    try:
+        import hashlib
+        h = hashlib.md5(customer_id.encode('utf-8')).hexdigest()
+        val = int(h[:8], 16) / 0xFFFFFFFF
+    except Exception:
+        # fallback to simple modulo if hashing fails
+        val = sum(ord(c) for c in customer_id) % 100 / 100.0
+
+    if val < split.get('model_a', 0.5):
         return models['model_a'], models['model_a_version']
     else:
         return models['model_b'], models['model_b_version']
@@ -251,8 +269,8 @@ async def predict(customer: CustomerFeatures, explain: bool = False):
     try:
         # Start timing
         start_time = datetime.now()
-        # Select model (A/B testing)
-        model, model_version = select_model()
+        # Select model (A/B testing) deterministically by customer_id
+        model, model_version = select_model(customer.customer_id)
         
         # Preprocess
         X = preprocess_input(customer)
@@ -425,72 +443,35 @@ async def get_dashboard_overview():
 async def get_mlflow_runs():
     """Get MLflow experiment runs directly from SQLite database"""
     try:
-        import sqlite3
-        
-        # Connect to MLflow database
-        conn = sqlite3.connect('mlflow.db')
-        
-        # Query runs with metrics and params
-        query = """
-        SELECT 
-            r.run_uuid,
-            r.experiment_id,
-            r.status,
-            datetime(r.start_time/1000, 'unixepoch') as start_time,
-            r.lifecycle_stage
-        FROM runs r
-        WHERE r.lifecycle_stage = 'active'
-        ORDER BY r.start_time DESC
-        LIMIT 20
-        """
-        
-        runs_df = pd.read_sql(query, conn)
-        
-        if len(runs_df) == 0:
-            conn.close()
+        client = MlflowClient(tracking_uri=mlflow.get_tracking_uri())
+
+        # Get latest 20 runs across experiments
+        runs = client.search_runs(experiment_ids=None, filter_string="", run_view_type=1, max_results=20)
+
+        if not runs:
             return {"runs": [], "count": 0, "message": "No training runs found. Run: python train_model.py"}
-        
-        # Get metrics for each run
+
         runs_data = []
-        for _, run in runs_df.iterrows():
-            run_uuid = run['run_uuid']
-            
-            # Get metrics for this run
-            metrics_query = f"""
-            SELECT key, value 
-            FROM metrics 
-            WHERE run_uuid = '{run_uuid}'
-            """
-            metrics_df = pd.read_sql(metrics_query, conn)
-            metrics_dict = dict(zip(metrics_df['key'], metrics_df['value']))
-            
-            # Get params for this run
-            params_query = f"""
-            SELECT key, value 
-            FROM params 
-            WHERE run_uuid = '{run_uuid}'
-            """
-            params_df = pd.read_sql(params_query, conn)
-            params_dict = dict(zip(params_df['key'], params_df['value']))
-            
+        for r in runs:
+            metrics = {k: float(v) for k, v in r.data.metrics.items()} if r.data.metrics else {}
+            params = dict(r.data.params) if r.data.params else {}
+
             runs_data.append({
-                'run_id': run_uuid,
-                'start_time': run['start_time'],
-                'status': run['status'],
+                'run_id': r.info.run_id,
+                'start_time': datetime.fromtimestamp(r.info.start_time / 1000).isoformat() if r.info.start_time else None,
+                'status': r.info.status,
                 'metrics': {
-                    'test_auc': float(metrics_dict.get('test_auc', 0)),
-                    'test_f1': float(metrics_dict.get('test_f1', 0)),
-                    'test_precision': float(metrics_dict.get('test_precision', 0)),
-                    'test_recall': float(metrics_dict.get('test_recall', 0)),
+                    'test_auc': metrics.get('test_auc', 0),
+                    'test_f1': metrics.get('test_f1', 0),
+                    'test_precision': metrics.get('test_precision', 0),
+                    'test_recall': metrics.get('test_recall', 0),
                 },
-                'params': params_dict
+                'params': params
             })
-        
-        conn.close()
+
         return {"runs": runs_data, "count": len(runs_data)}
-            
     except Exception as e:
-        print(f"MLflow database error: {e}")
+        print(f"MLflow error: {e}")
         return {"runs": [], "count": 0, "error": str(e)}
 
 
@@ -529,60 +510,47 @@ async def get_drift_report():
 async def get_training_stats():
     """Get training statistics from MLflow database"""
     try:
-        import sqlite3
-        
-        conn = sqlite3.connect('mlflow.db')
-        
-        # Get total training runs
-        total_runs = pd.read_sql("SELECT COUNT(*) as count FROM runs", conn)['count'][0]
-        
-        # Get recent runs count
-        recent_query = """
-        SELECT COUNT(*) as count 
-        FROM runs 
-        WHERE start_time > (strftime('%s', 'now', '-7 days') * 1000)
-        """
-        recent_runs = pd.read_sql(recent_query, conn)['count'][0]
-        
-        # Get best model metrics
-        best_model_query = """
-        SELECT m.key, m.value
-        FROM metrics m
-        JOIN runs r ON m.run_uuid = r.run_uuid
-        WHERE m.key IN ('test_auc', 'test_f1', 'test_precision', 'test_recall')
-        ORDER BY r.start_time DESC
-        LIMIT 4
-        """
-        best_metrics = pd.read_sql(best_model_query, conn)
-        best_metrics_dict = dict(zip(best_metrics['key'], best_metrics['value']))
-        
-        # Get training history
-        history_query = """
-        SELECT 
-            datetime(r.start_time/1000, 'unixepoch') as date,
-            COUNT(*) as runs_count
-        FROM runs r
-        GROUP BY date(r.start_time/1000, 'unixepoch')
-        ORDER BY r.start_time DESC
-        LIMIT 30
-        """
-        history = pd.read_sql(history_query, conn)
-        
-        conn.close()
-        
+        client = MlflowClient(tracking_uri=mlflow.get_tracking_uri())
+
+        # Total runs across all experiments
+        all_runs = client.search_runs(experiment_ids=None, filter_string="", run_view_type=1)
+        total_runs = len(all_runs)
+
+        # Recent runs in last 7 days
+        recent_runs = [r for r in all_runs if r.info.start_time and (datetime.now().timestamp() * 1000 - r.info.start_time) < 7 * 24 * 3600 * 1000]
+
+        # Best model metrics from most recent runs
+        best_metrics = {}
+        if all_runs:
+            # Sort by start_time desc
+            sorted_runs = sorted(all_runs, key=lambda x: x.info.start_time or 0, reverse=True)
+            for key in ('test_auc', 'test_f1', 'test_precision', 'test_recall'):
+                for r in sorted_runs:
+                    if key in r.data.metrics:
+                        best_metrics[key] = float(r.data.metrics[key])
+                        break
+
+        # Training history (count per day) limited to last 30
+        history = {}
+        for r in all_runs:
+            if r.info.start_time:
+                day = datetime.fromtimestamp(r.info.start_time / 1000).date().isoformat()
+                history[day] = history.get(day, 0) + 1
+
+        history_records = sorted([{"date": d, "runs_count": c} for d, c in history.items()], key=lambda x: x['date'], reverse=True)[:30]
+
         return {
             "total_runs": int(total_runs),
-            "recent_runs_7d": int(recent_runs),
+            "recent_runs_7d": int(len(recent_runs)),
             "best_model": {
-                "auc": float(best_metrics_dict.get('test_auc', 0)),
-                "f1": float(best_metrics_dict.get('test_f1', 0)),
-                "precision": float(best_metrics_dict.get('test_precision', 0)),
-                "recall": float(best_metrics_dict.get('test_recall', 0))
+                "auc": float(best_metrics.get('test_auc', 0)),
+                "f1": float(best_metrics.get('test_f1', 0)),
+                "precision": float(best_metrics.get('test_precision', 0)),
+                "recall": float(best_metrics.get('test_recall', 0))
             },
-            "training_history": history.to_dict('records'),
+            "training_history": history_records,
             "timestamp": datetime.now().isoformat()
         }
-        
     except Exception as e:
         print(f"Training stats error: {e}")
         return {
