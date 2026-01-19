@@ -1,0 +1,55 @@
+# Python venvs
+.venv
+venv
+env/
+ENV/
+
+# Python build / caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+pip-wheel-metadata/
+*.egg-info/
+build/
+dist/
+
+# Virtualenv / editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Secrets / env
+.env
+.env.local
+.env.*
+
+# Runtime / test artifacts
+*.log
+logs/
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# ML / data artifacts (large)
+mlruns/
+models/
+data/
+data/raw/
+data/recent_predictions.json
+
+# Node / frontend
+node_modules/
+dashboard/react-frontend/node_modules/
+dashboard/react-frontend/dist/
+dashboard/react-frontend/.vite
+
+# Docker / local files
+docker-compose.override.yml
+*.sqlite
+*.db
+tmp/
+temp/
