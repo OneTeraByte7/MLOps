@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    ports:
+      - '8000:8000'
+    environment:
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5000}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_PROJECT_ID=${SUPABASE_PROJECT_ID}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    depends_on:
+      - mlflow
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    ports:
+      - '5173:80'
+
+  mlflow:
+    image: python:3.11-slim
+    command: bash -c "pip install mlflow && mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root /mlruns --host 0.0.0.0 --port 5000"
+    volumes:
+      - ./mlruns:/mlruns
+      - ./mlflow.db:/mlflow.db
+    ports:
+      - '5000:5000'
+
+# optional: networks and volumes can be added
