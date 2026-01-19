@@ -82,6 +82,31 @@ This project demonstrates best practices for deploying machine learning models t
 └──────────────────────────────┬──────────────────────────────────┘
                                 │
                                 ▼
+
+                                ## Docker & CI/CD
+
+                                Quick start for local development (uses docker-compose):
+
+                                1. Build and start services:
+                                ```bash
+                                docker-compose up --build
+                                ```
+
+                                2. Services:
+                                - API: http://localhost:8000
+                                - Frontend: http://localhost:5173
+                                - MLflow UI: http://localhost:5000
+
+                                CI/CD (GitHub Actions):
+                                - `.github/workflows/ci.yml` — runs lint/tests and builds Docker images.
+                                - `.github/workflows/cd.yml` — pushes images to Docker Hub and can deploy to Kubernetes (requires secrets `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, and optional `KUBE_CONFIG_DATA`).
+
+                                Notes:
+                                - If using Supabase as the Postgres/artifact store for MLflow, URL-encode special characters in passwords (e.g. `#` → `%23`).
+                                - Use `deploy/supabase_migrations.sql` to create required tables: `drift_reports`, `models`, and `model_registry`.
+
+                                If you want, I can commit these Dockerfiles and CI files and run a local test build — say "Run local compose" or "Create CI secrets".
+
 ┌─────────────────────────────────────────────────────────────────┐
 │                    FEATURE ENGINEERING                          │
 │  ┌──────────────────────────────────────────────────┐          │
